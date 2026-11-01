@@ -67,7 +67,7 @@ export function Section({ title, count, children, action }: { title: string; cou
   return (
     <section className="stack" style={{ gap: 8 }}>
       <div className="row">
-        <h3 className="label" style={{ fontSize: 12 }}>{title}{count !== undefined && <span className="count">{count}</span>}</h3>
+        <h3 className="label section-label">{title}{count !== undefined && <span className="count">{count}</span>}</h3>
         <span className="spacer" />{action}
       </div>
       {children}
