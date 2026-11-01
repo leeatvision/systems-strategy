@@ -5,11 +5,22 @@ import { addDays, endOfWeek, quarterEnd, currentQuarter, today } from "../lib/da
 
 export interface FilterField { key: string; label: string; options: { value: string; label: string }[] }
 
-/** Filter values for one page, remembered on this device. */
-export function useFilters<T extends Record<string, string>>(page: string, defaults: T) {
+/**
+ * Filter values for one page, remembered on this device. When a page's defaults change, raise `version`
+ * and list the changed keys in `renew`: those go back to the new default once on each device.
+ */
+export function useFilters<T extends Record<string, string>>(page: string, defaults: T, upgrade?: { version: number; renew: (keyof T)[] }) {
   const storeKey = `ss.filters.${page}`;
   const [values, setValues] = useState<T>(() => {
-    try { return { ...defaults, ...JSON.parse(localStorage.getItem(storeKey) ?? "{}") }; } catch { return defaults; }
+    try {
+      const saved = { ...defaults, ...JSON.parse(localStorage.getItem(storeKey) ?? "{}") } as T;
+      if (upgrade && Number(localStorage.getItem(`${storeKey}.v`) ?? 0) < upgrade.version) {
+        for (const k of upgrade.renew) saved[k] = defaults[k];
+        localStorage.setItem(storeKey, JSON.stringify(saved));
+        localStorage.setItem(`${storeKey}.v`, String(upgrade.version));
+      }
+      return saved;
+    } catch { return defaults; }
   });
   const save = (next: T) => { setValues(next); try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch { /* private mode */ } };
   const set = (key: keyof T, value: string) => save({ ...values, [key]: value });

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, MoreVertical } from "lucide-react";
+import { Check, ChevronDown, Lock, MoreVertical } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { fullName, initials, type Member } from "../lib/supabase";
 
@@ -157,4 +157,9 @@ export function Fold({ title, count, open, onToggle, action, children }: {
       {open && <div className="fold-body">{children}</div>}
     </div>
   );
+}
+
+/** Marks a To-Do only its owner can see. */
+export function PersonalBadge() {
+  return <span className="badge badge-personal" title="Only the owner can see this"><Lock size={11} strokeWidth={2.5} />Personal</span>;
 }

@@ -2,7 +2,7 @@ import { useState, type DragEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Member } from "../lib/supabase";
 import { addDays, endOfWeek, fmtDay, isoDay, today, type Todo } from "../lib/data";
-import { Chips, Tick } from "../components/ui";
+import { PersonalBadge, Chips, Tick } from "../components/ui";
 
 interface ViewProps {
   todos: Todo[];
@@ -43,6 +43,7 @@ function Card({ t, p, compact }: { t: Todo; p: ViewProps; compact?: boolean }) {
           <div className="small muted row" style={{ gap: 6, flexWrap: "wrap" }}>
             {p.showOwner && owner && <span>{owner.first_name}</span>}
             <span className={t.status === "open" && t.due_date < now ? "overdue" : ""}>Due {fmtDay(t.due_date)}</span>
+            {t.is_personal && <PersonalBadge />}
             {t.priority === "high" && <span className="badge badge-danger">High</span>}
           </div>
         )}

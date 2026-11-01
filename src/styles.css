@@ -649,3 +649,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 @media (max-width: 420px) { .kv > div { grid-template-columns: 1fr; gap: 2px; } }
 .more-toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-brand-hover); font-size: 14px; font-weight: 600; align-self: flex-start; }
 .nowrap { white-space: nowrap; }
+.badge-personal { display: inline-flex; align-items: center; gap: 3px; background: var(--gray-200); color: var(--gray-700); }
+.seg-text button { width: auto; padding: 0 10px; font: inherit; font-size: 13px; font-weight: 600; }
+@media (max-width: 360px) { .seg button { width: 32px; } .seg-text button { width: auto; padding: 0 7px; } .toolbar .iconbtn { width: 32px; } }

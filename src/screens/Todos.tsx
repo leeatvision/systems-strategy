@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CircleAlert, Download, Lock, Plus, Repeat, Trash2 } from "lucide-react";
+import { CalendarDays, CircleAlert, Columns3, Download, List, Plus, Printer, Repeat, Trash2 } from "lucide-react";
 import { downloadCsv } from "../lib/csv";
 import { TodoBoard, TodoCalendar } from "./TodoViews";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
@@ -9,9 +9,9 @@ import {
   type ChecklistItem, type RepeatRule, type Todo,
 } from "../lib/data";
 import { Comments } from "../components/Comments";
-import { DATE_OPTIONS, FilterBar, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { DATE_OPTIONS, FilterButton, FilterPanel, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Attachments } from "../components/Attachments";
-import { Chips, Empty, OwnerChips, OwnerSelect, Section, Tick } from "../components/ui";
+import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
 export function Todos() {
@@ -19,11 +19,13 @@ export function Todos() {
   const { active, byId, members } = useMembers();
   const { defaultMeetingId } = useMeetings();
   const [todos, setTodos] = useState<Todo[] | null>(null);
-  const DEFAULTS = { owner: "me", status: "all", due: "any", priority: "all", personal: "all" };
-  const filters = useFilters("todos", DEFAULTS);
+  const DEFAULTS = { owner: "me", status: "open", due: "any", priority: "all", personal: "all" };
+  // Open To-Dos only by default; done ones are a filter choice.
+  const filters = useFilters("todos", DEFAULTS, { version: 2, renew: ["status"] });
   const f = filters.values;
   const who = f.owner === "me" ? "me" : "all";
   const [showDone, setShowDone] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<Todo | null>(null);
   const [view, setViewState] = useState<"list" | "board" | "calendar">(() => {
     try { return (localStorage.getItem("ss.todoView") as "list" | "board" | "calendar") || "list"; } catch { return "list"; }
@@ -63,12 +65,15 @@ export function Todos() {
     && (f.personal === "all" || (f.personal === "personal" ? t.is_personal : !t.is_personal)));
   const fields = [
     { key: "owner", label: "Owner", options: ownerOptions(members, me.id) },
-    { key: "status", label: "Status", options: [{ value: "all", label: "Open and done" }, { value: "open", label: "Open" }, { value: "done", label: "Done" }] },
+    { key: "status", label: "Status", options: [{ value: "open", label: "Open" }, { value: "done", label: "Done" }, { value: "all", label: "Open and done" }] },
     { key: "due", label: "Due", options: DATE_OPTIONS.filter((o) => o.value !== "none") },
     { key: "priority", label: "Priority", options: [{ value: "all", label: "Any priority" }, { value: "high", label: "High" }, { value: "normal", label: "Normal" }, { value: "low", label: "Low" }] },
     { key: "personal", label: "Personal", options: [{ value: "all", label: "Personal and shared" }, { value: "personal", label: "Personal only" }, { value: "shared", label: "Shared only" }] },
   ];
   const open = mine.filter((t) => t.status === "open");
+  const extra = filters.active - (f.owner !== DEFAULTS.owner ? 1 : 0);
+  const filterNote = f.status === "done" ? "Showing done To-Dos" : f.status === "all" ? "Showing open and done To-Dos"
+    : `${extra} filter${extra === 1 ? "" : "s"} on`;
   const done = mine.filter((t) => t.status === "done");
   const now = today(), weekEnd = endOfWeek();
   const groups = [
@@ -89,7 +94,7 @@ export function Todos() {
             {who === "all" && owner && <span>{owner.first_name}</span>}
             <span className={overdue ? "overdue" : ""}>Due {fmtDay(t.due_date)}</span>
             {t.repeat_rule && <span className="row" style={{ gap: 2 }}><Repeat size={12} />{REPEAT[t.repeat_rule]}</span>}
-            {t.is_personal && <span className="row" style={{ gap: 2 }}><Lock size={12} />Personal</span>}
+            {t.is_personal && <PersonalBadge />}
             {t.priority === "high" && <span className="badge badge-danger">High</span>}
           </div>
         </div>
@@ -99,19 +104,32 @@ export function Todos() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <div className="page-head goals-head">
         <h1>To-Dos</h1>
-        <span className="spacer" />
-        <button className="btn btn-sm btn-ghost no-print" onClick={exportCsv} aria-label="Export to CSV" title="Export to CSV"><Download size={18} /></button>
       </div>
-      <div className="row wrap no-print">
-        <Chips value={view} onChange={setView} options={[{ value: "list", label: "List" }, { value: "board", label: "Board" }, { value: "calendar", label: "Calendar" }]} />
+      <h2 className="print-only">To-Dos</h2>
+      <div className="toolbar no-print">
+        <span className="seg" role="group" aria-label="View">
+          {([["list", "List", List], ["board", "Board", Columns3], ["calendar", "Calendar", CalendarDays]] as const).map(([v, label, Icon]) => (
+            <button key={v} type="button" className={view === v ? "on" : ""} aria-pressed={view === v} aria-label={label} title={label} onClick={() => setView(v)}><Icon size={18} /></button>
+          ))}
+        </span>
         <span className="spacer" />
-        <Chips value={f.owner === "me" ? "me" : f.owner === "all" ? "all" : ""} onChange={(v) => filters.set("owner", v)}
-          options={[{ value: "me", label: "Mine" }, { value: "all", label: "Everyone" }]} />
+        <span className="seg seg-text" role="group" aria-label="Whose">
+          <button type="button" className={f.owner === "me" ? "on" : ""} aria-pressed={f.owner === "me"} onClick={() => filters.set("owner", "me")}>Mine</button>
+          <button type="button" className={f.owner === "all" ? "on" : ""} aria-pressed={f.owner === "all"} onClick={() => filters.set("owner", "all")}>Everyone</button>
+        </span>
+        <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
+        <Menu items={[
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
+        ]} />
       </div>
-      <FilterBar fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
-        active={filters.active} shown={mine.length} total={(todos ?? []).length} />
+      {showFilters && <FilterPanel fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
+        active={filters.active} shown={mine.length} total={(todos ?? []).length} />}
+      {!showFilters && extra > 0 && todos && (
+        <p className="small muted no-print" style={{ margin: 0 }}>{filterNote} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
+      )}
 
       <QuickAdd companyId={company.id} meId={me.id} members={active} meetingId={defaultMeetingId} onAdded={load} />
 
@@ -120,7 +138,8 @@ export function Todos() {
         : <TodoCalendar todos={mine} showOwner={who === "all"} byId={byId} onOpen={setEditing} onToggle={toggle} onMove={move} />)}
 
       {todos === null ? <p className="muted">Loading…</p> : view === "list" && <>
-        {open.length === 0 && <Empty>Nothing open. Nice.</Empty>}
+        {f.status !== "done" && open.length === 0 && <Empty>{filters.active > (f.owner !== DEFAULTS.owner ? 1 : 0) ? "No open To-Dos match these filters." : "Nothing open. Nice."}</Empty>}
+        {f.status === "done" && done.length === 0 && <Empty>No done To-Dos match these filters.</Empty>}
         {groups.map((g) => g.list.length > 0 && (
           <Section key={g.title} title={g.title} count={g.list.length}>
             <ul className="card list">{g.list.map(row)}</ul>
@@ -128,8 +147,8 @@ export function Todos() {
         ))}
         {done.length > 0 && (
           <Section title="Done" count={done.length}
-            action={<button className="btn btn-ghost btn-sm" onClick={() => setShowDone(!showDone)}>{showDone ? "Hide" : "Show"}</button>}>
-            {showDone && <ul className="card list">{done.map(row)}</ul>}
+            action={f.status === "all" && <button className="btn btn-ghost btn-sm" onClick={() => setShowDone(!showDone)}>{showDone ? "Hide" : "Show"}</button>}>
+            {(showDone || f.status === "done") && <ul className="card list">{done.map(row)}</ul>}
           </Section>
         )}
       </>}
