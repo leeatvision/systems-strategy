@@ -1,0 +1,9 @@
+{
+  "name": "Systems Strategy",
+  "wordmark": "systems strategy",
+  "description": "Goals, To-Dos, Issues, Scorecard and Weekly Meetings.",
+  "themeColor": "#1a1a1a",
+  "backgroundColor": "#ffffff",
+  "supabaseUrl": "",
+  "supabaseKey": ""
+}

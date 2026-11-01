@@ -1,0 +1,10 @@
+node_modules
+dist
+*.local
+.DS_Store
+tsconfig.tsbuildinfo
+# Brand files: brand/ is the private checkout; the other two are copied from it (or brand-default/) by scripts/brand.mjs.
+brand/
+.brand-repo/
+public/icons/
+src/brand/
