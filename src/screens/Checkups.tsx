@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, CircleAlert, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, CircleAlert, ListChecks, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers } from "../lib/data";
@@ -12,7 +12,8 @@ interface Checkup {
   id: string; company_id: string; title: string; kind: Kind; anonymous: boolean; status: "open" | "closed";
   closed_at: string | null; deleted_at: string | null; created_at: string;
 }
-interface Question { id: string; checkup_id: string; sort_order: number; text: string }
+interface Question { id: string; checkup_id: string; sort_order: number; text: string; group_title: string | null }
+interface Line { group_title: string | null; text: string }
 interface Answer { id: string; question_id: string; score: number | null; comment: string | null }
 interface Result { question_id: string; answered: number; average: number | null; spread: number[]; comments: { text: string; member_id: string | null }[] }
 
@@ -20,6 +21,31 @@ const KIND: Record<Kind, string> = { org: "Organisation", culture: "Culture", ot
 const SCALE = ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"];
 const pct = (avg: number | null) => (avg === null ? null : Math.round(((avg - 1) / 4) * 100));
 const scoreClass = (p: number | null) => (p === null ? "" : p >= 75 ? "badge-green" : p >= 50 ? "badge-warn" : "badge-danger");
+
+/** Questions as editable text: one per line, with "# Heading" lines for groups. */
+function toText(lines: Line[]): string {
+  let group: string | null = null;
+  const out: string[] = [];
+  for (const l of lines) {
+    if (l.group_title && l.group_title !== group) { if (out.length) out.push(""); out.push(`# ${l.group_title}`); }
+    group = l.group_title;
+    out.push(l.text);
+  }
+  return out.join("\n");
+}
+function fromText(text: string): Line[] {
+  let group: string | null = null;
+  const out: Line[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) { group = line.replace(/^#+\s*/, "") || null; continue; }
+    out.push({ group_title: group, text: line });
+  }
+  return out;
+}
+/** A heading above the first question of each group. */
+const groupStart = (qs: Line[], i: number) => qs[i].group_title && qs[i].group_title !== qs[i - 1]?.group_title ? qs[i].group_title : null;
 
 /** Overall score as a percentage (1 = 0%, 5 = 100%), from per-question averages. */
 function overall(results: Result[]): number | null {
@@ -33,6 +59,7 @@ export function Checkups() {
   const [scores, setScores] = useState<Record<string, number | null>>({});
   const [mine, setMine] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
+  const [standard, setStandard] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -67,13 +94,15 @@ export function Checkups() {
       <div className="page-head">
         <h1>Checkups</h1>
         <span className="spacer" />
+        <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Standard Questions</button>
         <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}><Plus size={16} />New checkup</button>
       </div>
-      <p className="small muted">A quick, honest read on how the organisation or culture is doing, using your own questions. Run one every quarter or so and watch the trend.</p>
+      <p className="small muted">A quick, honest read on how the organisation or culture is doing. Each type starts from its Standard Questions, so results compare from one checkup to the next. Run one every quarter or so and watch the trend.</p>
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <Empty>No checkups yet.</Empty> : <>
         {open.length > 0 && <Section title="Open" count={open.length}><ul className="card list">{open.map(row)}</ul></Section>}
         {closed.length > 0 && <Section title="Closed" count={closed.length}><ul className="card list">{closed.map(row)}</ul></Section>}
       </>}
+      {standard && <StandardQuestions onClose={() => setStandard(false)} />}
       {creating && <NewCheckup previous={list ?? []} onClose={() => setCreating(false)} onCreated={(id) => navigate(`/checkups/${id}`)} />}
     </div>
   );
@@ -85,20 +114,28 @@ function NewCheckup({ previous, onClose, onCreated }: { previous: Checkup[]; onC
   const [error, setError] = useState("");
   const last = previous.find((c) => c.kind === form.kind);
 
+  // Each type starts from its Standard Questions; they can still be changed for this checkup.
+  useEffect(() => {
+    let live = true;
+    supabase.from("ss_checkup_standard_questions").select("group_title, text").eq("kind", form.kind).order("sort_order")
+      .then(({ data }) => { if (live) setForm((f) => ({ ...f, questions: toText((data ?? []) as Line[]) })); });
+    return () => { live = false; };
+  }, [form.kind]);
+
   const copyLast = async () => {
     if (!last) return;
-    const { data } = await supabase.from("ss_checkup_questions").select("text").eq("checkup_id", last.id).order("sort_order");
-    setForm({ ...form, questions: ((data ?? []) as { text: string }[]).map((q) => q.text).join("\n") });
+    const { data } = await supabase.from("ss_checkup_questions").select("group_title, text").eq("checkup_id", last.id).order("sort_order");
+    setForm({ ...form, questions: toText((data ?? []) as Line[]) });
   };
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const qs = form.questions.split("\n").map((q) => q.trim()).filter(Boolean);
+    const qs = fromText(form.questions);
     if (!qs.length) { setError("Add at least one question."); return; }
     const { data, error } = await supabase.from("ss_checkups")
       .insert({ company_id: company.id, title: form.title.trim(), kind: form.kind, anonymous: form.anonymous, created_by: me.id }).select("id").single();
     if (error) { setError(friendlyError(error)); return; }
     const { error: qErr } = await supabase.from("ss_checkup_questions")
-      .insert(qs.map((text, i) => ({ company_id: company.id, checkup_id: data.id, sort_order: i + 1, text })));
+      .insert(qs.map((q, i) => ({ company_id: company.id, checkup_id: data.id, sort_order: i + 1, text: q.text, group_title: q.group_title })));
     if (qErr) { setError(friendlyError(qErr)); return; }
     onCreated(data.id);
   };
@@ -110,11 +147,12 @@ function NewCheckup({ previous, onClose, onCreated }: { previous: Checkup[]; onC
           <input className="input" required placeholder={`e.g. ${KIND[form.kind]} checkup, Q4 2026`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </label>
         <Chips value={form.kind} onChange={(kind) => setForm({ ...form, kind })} options={(Object.keys(KIND) as Kind[]).map((k) => ({ value: k, label: KIND[k] }))} />
-        <label className="field"><span>Questions <span className="muted" style={{ fontWeight: 400 }}>· one per line, written as statements people agree or disagree with</span></span>
-          <textarea className="input textarea" rows={8} placeholder={"We're clear on where we're going and how we'll get there.\nEveryone knows their top priorities this quarter.\nWe solve problems instead of talking around them."}
+        <label className="field"><span>Questions <span className="muted" style={{ fontWeight: 400 }}>· from this type's Standard Questions; change them for this checkup if you need to</span></span>
+          <textarea className="input textarea" rows={10} placeholder={"We're clear on where we're going and how we'll get there.\nEveryone knows their top priorities this quarter.\nWe solve problems instead of talking around them."}
             value={form.questions} onChange={(e) => setForm({ ...form, questions: e.target.value })} />
         </label>
-        {last && <button type="button" className="btn btn-sm" onClick={copyLast}>Copy the questions from “{last.title}”</button>}
+        <p className="small muted">One statement per line, written so people can agree or disagree. Start a line with # for a group heading.</p>
+        {last && <button type="button" className="btn btn-sm" onClick={copyLast}>Use the questions from “{last.title}” instead</button>}
         <label className="row small" style={{ gap: 8, cursor: "pointer" }}>
           <input type="checkbox" checked={form.anonymous} onChange={(e) => setForm({ ...form, anonymous: e.target.checked })} />
           Anonymous: results never show who answered what
@@ -226,8 +264,11 @@ export function CheckupDetail() {
           <div className="scale-legend" aria-hidden="true"><span><strong>1</strong> = strongly disagree (worst)</span><span><strong>5</strong> = strongly agree (best)</span></div>
           {questions.map((q, i) => {
             const a = answers.find((x) => x.question_id === q.id);
+            const heading = groupStart(questions, i);
             return (
-              <div key={q.id} className="card card-pad stack" style={{ gap: 10 }}>
+              <div key={q.id} className="stack" style={{ gap: 8 }}>
+              {heading && <h3 className="checkup-group">{heading}</h3>}
+              <div className="card card-pad stack" style={{ gap: 10 }}>
                 <div className="row" style={{ alignItems: "flex-start" }}><span className="plan-num" style={{ paddingTop: 0 }}>{i + 1}.</span><strong style={{ color: "var(--color-fg)" }}>{q.text}</strong></div>
                 <div className="scale" role="radiogroup" aria-label={q.text}>
                   {SCALE.map((label, s) => (
@@ -240,6 +281,7 @@ export function CheckupDetail() {
                 </div>
                 <textarea className="input textarea" rows={1} placeholder="Comment (optional)" disabled={c.status === "closed"} defaultValue={a?.comment ?? ""}
                   onBlur={(e) => (e.target.value.trim() || null) !== (a?.comment ?? null) && answer(q, { comment: e.target.value.trim() || null })} />
+              </div>
               </div>
             );
           })}
@@ -261,8 +303,11 @@ export function CheckupDetail() {
             const p = pct(r?.average ?? null);
             const before = previous?.byText[q.text.trim().toLowerCase()];
             const max = Math.max(1, ...(r?.spread ?? [0]));
+            const heading = groupStart(questions, i);
             return (
-              <div key={q.id} className="card card-pad stack" style={{ gap: 8 }}>
+              <div key={q.id} className="stack" style={{ gap: 8 }}>
+              {heading && <h3 className="checkup-group">{heading}</h3>}
+              <div className="card card-pad stack" style={{ gap: 8 }}>
                 <div className="row" style={{ alignItems: "flex-start" }}>
                   <span className="plan-num" style={{ paddingTop: 0 }}>{i + 1}.</span>
                   <strong style={{ flex: 1, color: "var(--color-fg)" }}>{q.text}</strong>
@@ -285,6 +330,7 @@ export function CheckupDetail() {
                   <p key={j} className="small comment-body">“{cm.text}”{cm.member_id && <span className="muted"> · {byId(cm.member_id) ? fullName(byId(cm.member_id)!) : ""}</span>}</p>
                 ))}
               </div>
+              </div>
             );
           })}
           <p className="small muted">Low scores are a prompt for a conversation: drop the biggest one into Issues.</p>
@@ -299,5 +345,73 @@ export function CheckupDetail() {
         }}><Trash2 size={16} />Recycle bin</button>
       </div>
     </div>
+  );
+}
+
+/** Each checkup type's Standard Questions: owners edit them, everyone can read them. */
+function StandardQuestions({ onClose }: { onClose: () => void }) {
+  const { company, isOwner } = useMe();
+  const [kind, setKind] = useState<Kind>("org");
+  const [text, setText] = useState<string | null>(null);
+  const [saved, setSaved] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setText(null); setMsg(null);
+    supabase.from("ss_checkup_standard_questions").select("group_title, text").eq("kind", kind).order("sort_order")
+      .then(({ data }) => { if (!live) return; const t = toText((data ?? []) as Line[]); setText(t); setSaved(t); });
+    return () => { live = false; };
+  }, [kind]);
+
+  const save = async () => {
+    if (text === null) return;
+    const lines = fromText(text);
+    setBusy(true); setMsg(null);
+    // Replace the whole list: add the new list first, then remove the old rows, so a failure part-way
+    // never leaves the type with no questions.
+    const { data: old } = await supabase.from("ss_checkup_standard_questions").select("id").eq("kind", kind);
+    const { error: addError } = lines.length
+      ? await supabase.from("ss_checkup_standard_questions").insert(lines.map((l, i) => ({ company_id: company.id, kind, group_title: l.group_title, sort_order: i + 1, text: l.text })))
+      : { error: null };
+    const oldIds = ((old ?? []) as { id: string }[]).map((r) => r.id);
+    const { error } = addError ? { error: addError } : oldIds.length
+      ? await supabase.from("ss_checkup_standard_questions").delete().in("id", oldIds)
+      : { error: null };
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: friendlyError(error) }); return; }
+    const t = toText(lines);
+    setText(t); setSaved(t);
+    setMsg({ ok: true, text: `Saved ${lines.length} question${lines.length === 1 ? "" : "s"}. New ${KIND[kind]} checkups start from this list; checkups already running don't change.` });
+  };
+
+  return (
+    <Sheet title="Standard Questions" onClose={onClose}>
+      <div className="stack">
+        <Chips value={kind} onChange={setKind} options={(Object.keys(KIND) as Kind[]).map((k) => ({ value: k, label: KIND[k] }))} />
+        <p className="small muted">Every new {KIND[kind]} checkup starts with these, so results can be compared over time. Rewording a question starts a fresh comparison for it.</p>
+        {text === null ? <p className="muted">Loading…</p> : isOwner ? (
+          <>
+            <textarea className="input textarea" rows={16} value={text} onChange={(e) => setText(e.target.value)}
+              placeholder={"# A group heading\nA statement people agree or disagree with.\nAnother statement."} />
+            <p className="small muted">One statement per line. Start a line with # for a group heading.</p>
+            {msg && <p className={msg.ok ? "notice" : "error"}>{msg.text}</p>}
+            <button className="btn btn-primary" disabled={busy || text === saved} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+          </>
+        ) : (
+          <>
+            {fromText(text).length === 0 ? <Empty>No Standard Questions for {KIND[kind]} yet.</Empty> : (
+              <ol className="standard-list">
+                {fromText(text).map((l, i, all) => (
+                  <li key={i}>{groupStart(all, i) && <strong className="checkup-group">{l.group_title}</strong>}<span>{l.text}</span></li>
+                ))}
+              </ol>
+            )}
+            <p className="small muted">Only owners can change Standard Questions.</p>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
