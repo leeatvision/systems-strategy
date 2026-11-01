@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarCheck, ChevronLeft, ChevronRight, Download, Plus, Printer } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, Download, GanttChart, List, Plus, Printer } from "lucide-react";
 import { downloadCsv } from "../lib/csv";
 import { fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -8,9 +8,9 @@ import {
   GOAL_STATUS, GOAL_TYPE, currentQuarter, fmtDay, isoDay, qLabel, quarterEnd, shiftQuarter, today, useMembers,
   type Quarter, type Goal, type GoalStatus, type GoalType,
 } from "../lib/data";
-import { Avatar, Chips, Empty, Progress, Section } from "../components/ui";
+import { Avatar, Empty, Menu, Progress, Section } from "../components/ui";
 import { QuarterClose } from "../components/QuarterClose";
-import { DATE_OPTIONS, FilterBar, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { DATE_OPTIONS, FilterButton, FilterPanel, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 
 const GROUPS: GoalStatus[] = ["off_track", "on_track", "done", "not_done", "canceled"];
 
@@ -25,6 +25,7 @@ export function Goals() {
   const [steps, setSteps] = useState<Record<string, StepDot[]>>({});
   const [view, setView] = useState<"list" | "timeline">("list");
   const [closing, setClosing] = useState(false);
+  const [showFilters, setShowFilters] = useState(filters.active > 0);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -56,6 +57,12 @@ export function Goals() {
   const cur = currentQuarter();
   const canClose = q.year * 4 + q.quarter <= cur.year * 4 + cur.quarter;
   const toClose = (goals ?? []).filter((r) => isOpen(r) && r.quarter === q.quarter && r.quarter_year === q.year);
+  // The Close out reminder shows in a quarter's last 4 weeks, or once it has ended, while its Goals are still open.
+  const daysLeft = Math.round((new Date(`${quarterEnd(q)}T12:00:00`).getTime() - new Date(`${today()}T12:00:00`).getTime()) / 86400000);
+  const remind = canClose && toClose.length > 0 && daysLeft <= 28;
+  const whenText = daysLeft < 0 ? `${qLabel(q)} has ended` : daysLeft === 0 ? `Q${q.quarter} ends today`
+    : daysLeft < 7 ? `Q${q.quarter} ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+    : `Q${q.quarter} ends in ${Math.round(daysLeft / 7)} weeks`;
   const shown = (goals ?? []).filter((r) => ownerMatches(f.owner, r.owner_member_id, me.id)
     && (f.type === "all" || r.goal_type === f.type)
     && (f.status === "all" || (f.status === "open" ? isOpen(r) : r.status === f.status))
@@ -104,30 +111,41 @@ export function Goals() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <div className="page-head goals-head">
         <h1>Goals</h1>
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost" onClick={() => print()} aria-label="Print" title="Print"><Printer size={18} /></button>
-        <button className="btn btn-sm btn-ghost" onClick={exportCsv} aria-label="Export to CSV" title="Export to CSV"><Download size={18} /></button>
-        <Link to="/goals/new" className="btn btn-primary btn-sm"><Plus size={16} />New Goal</Link>
+        <Link to="/goals/new" className="btn btn-primary btn-sm desktop-only"><Plus size={16} />New Goal</Link>
       </div>
       <h2 className="print-only">Goals · {qLabel(q)}</h2>
 
-      <div className="row wrap">
-        <div className="row" style={{ gap: 4 }}>
-          <button className="btn btn-sm btn-ghost" aria-label="Previous quarter" onClick={() => setQ(shiftQuarter(q, -1))}><ChevronLeft size={18} /></button>
-          <strong style={{ color: "var(--color-fg)", minWidth: 72, textAlign: "center" }}>{qLabel(q)}</strong>
-          <button className="btn btn-sm btn-ghost" aria-label="Next quarter" onClick={() => setQ(shiftQuarter(q, 1))}><ChevronRight size={18} /></button>
-        </div>
-        <Chips value={view} onChange={setView} options={[{ value: "list", label: "List" }, { value: "timeline", label: "Timeline" }]} />
-        {canClose && toClose.length > 0 && <>
-          <span className="spacer" />
-          <button className="btn btn-sm no-print" onClick={() => setClosing(true)}><CalendarCheck size={16} />Close out {qLabel(q)}</button>
-        </>}
+      <div className="toolbar no-print">
+        <button className="btn btn-sm btn-ghost iconbtn" aria-label="Previous quarter" title="Previous quarter" onClick={() => setQ(shiftQuarter(q, -1))}><ChevronLeft size={18} /></button>
+        <strong className="toolbar-q">{qLabel(q)}</strong>
+        <button className="btn btn-sm btn-ghost iconbtn" aria-label="Next quarter" title="Next quarter" onClick={() => setQ(shiftQuarter(q, 1))}><ChevronRight size={18} /></button>
+        <span className="spacer" />
+        <span className="seg" role="group" aria-label="View">
+          <button type="button" className={view === "list" ? "on" : ""} aria-pressed={view === "list"} aria-label="List" title="List" onClick={() => setView("list")}><List size={18} /></button>
+          <button type="button" className={view === "timeline" ? "on" : ""} aria-pressed={view === "timeline"} aria-label="Timeline" title="Timeline" onClick={() => setView("timeline")}><GanttChart size={18} /></button>
+        </span>
+        <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
+        <Menu items={[
+          { label: `Close out ${qLabel(q)}`, icon: <CalendarCheck size={16} />, onSelect: () => setClosing(true), hidden: !(canClose && toClose.length > 0) },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
+        ]} />
       </div>
+      {showFilters && <FilterPanel fields={fields} values={f} defaults={{ owner: "all", type: "all", status: "all", due: "any", finish: "any", sort: "status" }}
+        onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset} active={filters.active} shown={shown.length} total={goals?.length ?? 0} />}
+      {!showFilters && filters.active > 0 && goals && (
+        <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {goals.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
+      )}
+      {remind && (
+        <div className="close-banner no-print">
+          <span>{whenText} · {toClose.length} Goal{toClose.length === 1 ? "" : "s"} still open</span>
+          <button type="button" className="link-btn" onClick={() => setClosing(true)}>Close out</button>
+        </div>
+      )}
       {closing && <QuarterClose q={q} goals={toClose} onClose={() => setClosing(false)} onDone={() => { setClosing(false); setReload((n) => n + 1); }} />}
-      <FilterBar fields={fields} values={f} defaults={{ owner: "all", type: "all", status: "all", due: "any", finish: "any", sort: "status" }}
-        onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset} active={filters.active} shown={shown.length} total={goals?.length ?? 0} />
 
       {goals === null ? <p className="muted">Loading…</p> : shown.length === 0 ? (
         <Empty>{goals.length ? "No Goals match these filters." : `No Goals for ${qLabel(q)}.`}</Empty>
@@ -144,6 +162,8 @@ export function Goals() {
           </Section>
         );
       })}
+      <div className="fab-space" aria-hidden />
+      <Link to="/goals/new" className="fab no-print" aria-label="New Goal"><Plus size={20} />New Goal</Link>
     </div>
   );
 }

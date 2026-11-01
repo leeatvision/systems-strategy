@@ -28,7 +28,7 @@ function Body({ text, members }: { text: string; members: Member[] }) {
   return <>{parts.map((p, i) => (p.startsWith("@") ? <strong key={i} className="mention">{p}</strong> : p))}</>;
 }
 
-export function Comments({ itemType, itemId }: { itemType: ItemType; itemId: string }) {
+export function Comments({ itemType, itemId, bare, onCount }: { itemType: ItemType; itemId: string; bare?: boolean; onCount?: (n: number) => void }) {
   const { me, company } = useMe();
   const { members, active } = useMembers();
   const [list, setList] = useState<Comment[] | null>(null);
@@ -41,6 +41,7 @@ export function Comments({ itemType, itemId }: { itemType: ItemType; itemId: str
     const { data } = await supabase.from("ss_comments").select("id, author_id, body, mentions, edited_at, created_at")
       .eq("item_type", itemType).eq("item_id", itemId).is("deleted_at", null).order("created_at");
     setList((data ?? []) as Comment[]);
+    onCount?.((data ?? []).length);
   }, [itemType, itemId]);
   useEffect(() => { load(); }, [load]);
 
@@ -76,7 +77,7 @@ export function Comments({ itemType, itemId }: { itemType: ItemType; itemId: str
 
   return (
     <div className="stack" style={{ gap: 12 }}>
-      <h3>Comments{list?.length ? <span className="count">{list.length}</span> : null}</h3>
+      {!bare && <h3>Comments{list?.length ? <span className="count">{list.length}</span> : null}</h3>}
       {list?.map((c) => {
         const author = members.find((m) => m.id === c.author_id);
         return (

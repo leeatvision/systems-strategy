@@ -60,11 +60,54 @@ export function dateMatches(filter: string, date: string | null | undefined, ope
   }
 }
 
-/** A wrapping row of compact dropdowns, with the result count and a reset. */
-export function FilterBar({ fields, values, defaults, onChange, onReset, active, shown, total }: {
+type BarProps = {
   fields: FilterField[]; values: Record<string, string>; defaults: Record<string, string>; onChange: (key: string, value: string) => void; onReset: () => void;
   active: number; shown?: number; total?: number;
-}) {
+};
+
+function FilterGrid({ fields, values, defaults, onChange }: Pick<BarProps, "fields" | "values" | "defaults" | "onChange">) {
+  return (
+    <div className="filter-grid">
+      {fields.map((f) => (
+        <label key={f.key} className="filter-field">
+          <span>{f.label}</span>
+          <select className={`select filter-select${values[f.key] !== defaults[f.key] && f.key !== "sort" ? " is-set" : ""}`}
+            value={values[f.key]} onChange={(e) => onChange(f.key, e.target.value)}>
+            {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** A compact Filters button showing how many filters are on; pair it with FilterPanel. */
+export function FilterButton({ open, active, onToggle }: { open: boolean; active: number; onToggle: () => void }) {
+  return (
+    <button type="button" className={`btn btn-ghost btn-sm iconbtn filter-btn${open || active ? " is-on" : ""}`} onClick={onToggle}
+      aria-expanded={open} aria-label={active ? `Filters, ${active} on` : "Filters"} title="Filters">
+      <SlidersHorizontal size={18} />{active > 0 && <span className="dot-count">{active}</span>}
+    </button>
+  );
+}
+
+/** The filter dropdowns, with the result count and a reset. */
+export function FilterPanel({ fields, values, defaults, onChange, onReset, active, shown, total }: BarProps) {
+  return (
+    <div className="filters no-print">
+      <FilterGrid fields={fields} values={values} defaults={defaults} onChange={onChange} />
+      <div className="row" style={{ gap: 8, marginTop: 8 }}>
+        {active > 0 && <button type="button" className="link-btn row" style={{ gap: 2 }} onClick={onReset}><X size={14} />Clear filters</button>}
+        <span className="spacer" />
+        {shown !== undefined && total !== undefined && <span className="small muted">{shown === total ? `${total} shown` : `Showing ${shown} of ${total}`}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** A wrapping row of compact dropdowns, with the result count and a reset. */
+export function FilterBar(props: BarProps) {
+  const { active, onReset, shown, total } = props;
   const [open, setOpen] = useState(active > 0);
   return (
     <div className="filters no-print">
@@ -76,19 +119,7 @@ export function FilterBar({ fields, values, defaults, onChange, onReset, active,
         <span className="spacer" />
         {shown !== undefined && total !== undefined && <span className="small muted">{shown === total ? `${total} shown` : `Showing ${shown} of ${total}`}</span>}
       </div>
-      {open && (
-        <div className="filter-grid">
-          {fields.map((f) => (
-            <label key={f.key} className="filter-field">
-              <span>{f.label}</span>
-              <select className={`select filter-select${values[f.key] !== defaults[f.key] && f.key !== "sort" ? " is-set" : ""}`}
-                value={values[f.key]} onChange={(e) => onChange(f.key, e.target.value)}>
-                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-          ))}
-        </div>
-      )}
+      {open && <FilterGrid {...props} />}
     </div>
   );
 }

@@ -13,7 +13,7 @@ interface Attachment { id: string; storage_path: string; file_name: string; size
 const size = (n: number | null) => (n === null ? "" : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 /** Files on a Goal, To-Do, Issue or Headline. Private: opened through short-lived links. */
-export function Attachments({ itemType, itemId }: { itemType: ItemType; itemId: string }) {
+export function Attachments({ itemType, itemId, bare, onCount }: { itemType: ItemType; itemId: string; bare?: boolean; onCount?: (n: number) => void }) {
   const { me, company, isOwner } = useMe();
   const [files, setFiles] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
@@ -24,6 +24,7 @@ export function Attachments({ itemType, itemId }: { itemType: ItemType; itemId: 
     const { data } = await supabase.from("ss_attachments").select("id, storage_path, file_name, size_bytes, created_at")
       .eq("item_type", itemType).eq("item_id", itemId).order("created_at");
     setFiles((data ?? []) as Attachment[]);
+    onCount?.((data ?? []).length);
   }, [itemType, itemId]);
   useEffect(() => { load(); }, [load]);
 
@@ -67,7 +68,7 @@ export function Attachments({ itemType, itemId }: { itemType: ItemType; itemId: 
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row">
-        <h3>Files{files.length > 0 && <span className="count">{files.length}</span>}</h3>
+        {!bare && <h3>Files{files.length > 0 && <span className="count">{files.length}</span>}</h3>}
         <span className="spacer" />
         <button type="button" className="btn btn-sm" disabled={busy} onClick={() => input.current?.click()}>
           <Upload size={16} />{busy ? "Uploading…" : "Add file"}

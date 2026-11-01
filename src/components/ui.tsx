@@ -1,5 +1,5 @@
-import { Check } from "lucide-react";
-import type { ReactNode } from "react";
+import { Check, ChevronDown, MoreVertical } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { fullName, initials, type Member } from "../lib/supabase";
 
 export function Avatar({ m, size = 28 }: { m: Member | undefined; size?: number }) {
@@ -87,5 +87,74 @@ export function Progress({ done, total }: { done: number; total: number }) {
       <span className="progress-bar"><span style={{ width: `${pct}%` }} /></span>
       <span className="small muted">{done}/{total}</span>
     </span>
+  );
+}
+
+/** A date box that never spills out of its space, with a Clear button whenever it holds a date. */
+export function DateInput({ value, onChange, label, small, id }: {
+  value: string | null | undefined; onChange: (v: string | null) => void; label: string; small?: boolean; id?: string;
+}) {
+  return (
+    <span className={`date-input${small ? " date-input-sm" : ""}`}>
+      <input id={id} className={`input${small ? " input-sm" : ""}`} type="date" aria-label={label} value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)} />
+      {value && <button type="button" className="btn btn-ghost btn-sm date-clear" aria-label={`Clear ${label.toLowerCase()}`}
+        onClick={() => onChange(null)}>Clear</button>}
+    </span>
+  );
+}
+
+export interface MenuItem { label: string; icon?: ReactNode; onSelect: () => void; danger?: boolean; hidden?: boolean }
+
+/** A small drop-down menu, opened from a button (⋮ by default). Closes on a pick, Escape or a tap outside. */
+export function Menu({ items, label = "More actions", button, className = "" }: {
+  items: MenuItem[]; label?: string; button?: ReactNode; className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const shown = items.filter((i) => !i.hidden);
+  return (
+    <span className={`menu-wrap ${className}`} ref={box}>
+      <button type="button" className={button ? "menu-trigger" : "btn btn-ghost btn-sm iconbtn"} aria-label={label} title={label}
+        aria-haspopup="menu" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+        {button ?? <MoreVertical size={18} />}
+      </button>
+      {open && (
+        <span className="menu" role="menu">
+          {shown.map((i) => (
+            <button key={i.label} type="button" role="menuitem" className={`menu-item${i.danger ? " menu-danger" : ""}`}
+              onClick={() => { setOpen(false); i.onSelect(); }}>{i.icon}{i.label}</button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** One fold of an accordion: a header row with a count, opening in place. */
+export function Fold({ title, count, open, onToggle, action, children }: {
+  title: string; count?: number; open: boolean; onToggle: () => void; action?: ReactNode; children: ReactNode;
+}) {
+  return (
+    <div className={`fold${open ? " fold-open" : ""}`}>
+      <div className="fold-head">
+        <button type="button" className="fold-toggle" aria-expanded={open} onClick={onToggle}>
+          <span>{title}</span>{count !== undefined && <span className="fold-count">{count}</span>}
+        </button>
+        {open && action}
+        <button type="button" className="fold-chevron" aria-label={open ? `Close ${title}` : `Open ${title}`} onClick={onToggle}>
+          <ChevronDown size={18} />
+        </button>
+      </div>
+      {open && <div className="fold-body">{children}</div>}
+    </div>
   );
 }
