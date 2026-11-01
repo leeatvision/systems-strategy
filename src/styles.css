@@ -544,3 +544,8 @@ a.tile:hover { border-color: var(--color-brand); text-decoration: none; }
 .checkup-group { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-fg-muted); margin: 8px 0 0; display: block; }
 .standard-list { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .standard-list .checkup-group { margin: 10px 0 4px -22px; }
+.std-group { gap: 8px; }
+.std-group-title { font-weight: 600; }
+.std-items { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.std-item { flex: 1; min-height: 44px; font-size: 14px; }
+.std-tools { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }

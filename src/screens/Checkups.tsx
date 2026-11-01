@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, CircleAlert, ListChecks, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, ListChecks, Lock, LockOpen, Plus, Trash2, X } from "lucide-react";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers } from "../lib/data";
 import { Chips, Empty, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
-type Kind = "org" | "culture" | "other";
+type Kind = string;
+interface CheckupType { id: string; key: string; name: string; built_in: boolean; is_one_off: boolean; sort_order: number; deleted_at: string | null }
 interface Checkup {
   id: string; company_id: string; title: string; kind: Kind; anonymous: boolean; status: "open" | "closed";
   closed_at: string | null; deleted_at: string | null; created_at: string;
@@ -17,7 +18,6 @@ interface Line { group_title: string | null; text: string }
 interface Answer { id: string; question_id: string; score: number | null; comment: string | null }
 interface Result { question_id: string; answered: number; average: number | null; spread: number[]; comments: { text: string; member_id: string | null }[] }
 
-const KIND: Record<Kind, string> = { org: "Organisation", culture: "Culture", other: "Other" };
 const SCALE = ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"];
 const pct = (avg: number | null) => (avg === null ? null : Math.round(((avg - 1) / 4) * 100));
 const scoreClass = (p: number | null) => (p === null ? "" : p >= 75 ? "badge-green" : p >= 50 ? "badge-warn" : "badge-danger");
@@ -47,6 +47,18 @@ function fromText(text: string): Line[] {
 /** A heading above the first question of each group. */
 const groupStart = (qs: Line[], i: number) => qs[i].group_title && qs[i].group_title !== qs[i - 1]?.group_title ? qs[i].group_title : null;
 
+/** The company's checkup types (built-in and their own), with a name lookup that also covers removed types. */
+function useCheckupTypes() {
+  const [types, setTypes] = useState<CheckupType[]>([]);
+  const reload = useCallback(async () => {
+    const { data } = await supabase.from("ss_checkup_types").select("*").order("sort_order").order("created_at");
+    setTypes((data ?? []) as CheckupType[]);
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+  const nameOf = (key: string) => types.find((t) => t.key === key)?.name ?? "Checkup";
+  return { types, active: types.filter((t) => !t.deleted_at), nameOf, reload };
+}
+
 /** Overall score as a percentage (1 = 0%, 5 = 100%), from per-question averages. */
 function overall(results: Result[]): number | null {
   const avgs = results.map((r) => r.average).filter((x): x is number => x !== null);
@@ -60,6 +72,7 @@ export function Checkups() {
   const [mine, setMine] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [standard, setStandard] = useState(false);
+  const checkupTypes = useCheckupTypes();
 
   useEffect(() => {
     (async () => {
@@ -82,7 +95,7 @@ export function Checkups() {
     <li key={c.id} className="clickable" onClick={() => navigate(`/checkups/${c.id}`)}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="item-title">{c.title}</div>
-        <div className="small muted">{KIND[c.kind]} · {fmtDay(c.created_at, true)}{c.anonymous ? " · anonymous" : ""}
+        <div className="small muted">{checkupTypes.nameOf(c.kind)} · {fmtDay(c.created_at, true)}{c.anonymous ? " · anonymous" : ""}
           {c.status === "open" && (mine.has(c.id) ? " · you've answered" : " · waiting for your answers")}</div>
       </div>
       {scores[c.id] != null && <span className={`badge ${scoreClass(scores[c.id]!)}`}>{scores[c.id]}%</span>}
@@ -94,33 +107,35 @@ export function Checkups() {
       <div className="page-head">
         <h1>Checkups</h1>
         <span className="spacer" />
-        <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Standard Questions</button>
+        <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Checkup Types &amp; Standard Questions</button>
         <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}><Plus size={16} />New checkup</button>
       </div>
-      <p className="small muted">A quick, honest read on how the organisation or culture is doing. Each type starts from its Standard Questions, so results compare from one checkup to the next. Run one every quarter or so and watch the trend.</p>
+      <p className="small muted">A quick, honest read on how the organisation, culture or anything else is doing. Each type starts from its Standard Questions, so results compare from one checkup to the next; Other is for one-off checkups with your own questions. Run one every quarter or so and watch the trend.</p>
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <Empty>No checkups yet.</Empty> : <>
         {open.length > 0 && <Section title="Open" count={open.length}><ul className="card list">{open.map(row)}</ul></Section>}
         {closed.length > 0 && <Section title="Closed" count={closed.length}><ul className="card list">{closed.map(row)}</ul></Section>}
       </>}
-      {standard && <StandardQuestions onClose={() => setStandard(false)} />}
-      {creating && <NewCheckup previous={list ?? []} onClose={() => setCreating(false)} onCreated={(id) => navigate(`/checkups/${id}`)} />}
+      {standard && <CheckupTypes checkupTypes={checkupTypes} onClose={() => setStandard(false)} />}
+      {creating && <NewCheckup types={checkupTypes.active} previous={list ?? []} onClose={() => setCreating(false)} onCreated={(id) => navigate(`/checkups/${id}`)} />}
     </div>
   );
 }
 
-function NewCheckup({ previous, onClose, onCreated }: { previous: Checkup[]; onClose: () => void; onCreated: (id: string) => void }) {
+function NewCheckup({ types, previous, onClose, onCreated }: { types: CheckupType[]; previous: Checkup[]; onClose: () => void; onCreated: (id: string) => void }) {
   const { me, company } = useMe();
   const [form, setForm] = useState({ title: "", kind: "org" as Kind, anonymous: true, questions: "" });
   const [error, setError] = useState("");
   const last = previous.find((c) => c.kind === form.kind);
+  const type = types.find((t) => t.key === form.kind);
 
-  // Each type starts from its Standard Questions; they can still be changed for this checkup.
+  // Each type starts from its Standard Questions; they can still be changed for this checkup. One-off types start empty.
   useEffect(() => {
     let live = true;
+    if (type?.is_one_off) { setForm((f) => ({ ...f, questions: "" })); return; }
     supabase.from("ss_checkup_standard_questions").select("group_title, text").eq("kind", form.kind).order("sort_order")
       .then(({ data }) => { if (live) setForm((f) => ({ ...f, questions: toText((data ?? []) as Line[]) })); });
     return () => { live = false; };
-  }, [form.kind]);
+  }, [form.kind, type?.is_one_off]);
 
   const copyLast = async () => {
     if (!last) return;
@@ -144,10 +159,10 @@ function NewCheckup({ previous, onClose, onCreated }: { previous: Checkup[]; onC
     <Sheet title="New checkup" onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field"><span>Name</span>
-          <input className="input" required placeholder={`e.g. ${KIND[form.kind]} checkup, Q4 2026`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <input className="input" required placeholder={`e.g. ${type?.name ?? "Organisation"} checkup, Q4 2026`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </label>
-        <Chips value={form.kind} onChange={(kind) => setForm({ ...form, kind })} options={(Object.keys(KIND) as Kind[]).map((k) => ({ value: k, label: KIND[k] }))} />
-        <label className="field"><span>Questions <span className="muted" style={{ fontWeight: 400 }}>· from this type's Standard Questions; change them for this checkup if you need to</span></span>
+        <Chips value={form.kind} onChange={(kind) => setForm({ ...form, kind })} options={types.map((t) => ({ value: t.key, label: t.name }))} />
+        <label className="field"><span>Questions <span className="muted" style={{ fontWeight: 400 }}>· {type?.is_one_off ? "write the questions for this one-off checkup" : "from this type's Standard Questions; change them for this checkup if you need to"}</span></span>
           <textarea className="input textarea" rows={10} placeholder={"We're clear on where we're going and how we'll get there.\nEveryone knows their top priorities this quarter.\nWe solve problems instead of talking around them."}
             value={form.questions} onChange={(e) => setForm({ ...form, questions: e.target.value })} />
         </label>
@@ -171,6 +186,7 @@ export function CheckupDetail() {
   const { byId } = useMembers();
   const { defaultMeetingId } = useMeetings();
   const navigate = useNavigate();
+  const { nameOf } = useCheckupTypes();
   const [c, setC] = useState<Checkup | null>(null);
   const [raised, setRaised] = useState<Set<string>>(new Set());
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -247,7 +263,7 @@ export function CheckupDetail() {
         <h1>{c.title}</h1>
         <span className={`badge ${c.status === "open" ? "badge-green" : ""}`}>{c.status === "open" ? "Open" : "Closed"}</span>
       </div>
-      <p className="small muted">{KIND[c.kind]}{c.anonymous ? " · anonymous" : " · names shown"} · {responders?.responders ?? 0} {responders?.responders === 1 ? "person has" : "people have"} answered
+      <p className="small muted">{nameOf(c.kind)}{c.anonymous ? " · anonymous" : " · names shown"} · {responders?.responders ?? 0} {responders?.responders === 1 ? "person has" : "people have"} answered
         {responders?.member_ids?.length ? ` (${responders.member_ids.map((m) => byId(m)?.first_name).filter(Boolean).join(", ")})` : ""}</p>
       <div className="row wrap">
         <Chips value={tab} onChange={setTab} options={[{ value: "answer", label: c.status === "open" ? `My answers ${done}/${questions.length}` : "My answers" }, { value: "results", label: "Results" }]} />
@@ -348,32 +364,53 @@ export function CheckupDetail() {
   );
 }
 
-/** Each checkup type's Standard Questions: owners edit them, everyone can read them. */
-function StandardQuestions({ onClose }: { onClose: () => void }) {
+interface Group { title: string; items: string[] }
+const toGroups = (lines: Line[]): Group[] => {
+  const groups: Group[] = [];
+  for (const l of lines) {
+    const title = l.group_title ?? "";
+    if (!groups.length || groups[groups.length - 1].title !== title) groups.push({ title, items: [] });
+    groups[groups.length - 1].items.push(l.text);
+  }
+  return groups;
+};
+const fromGroups = (groups: Group[]): Line[] =>
+  groups.flatMap((g) => g.items.map((t) => t.trim()).filter(Boolean).map((text) => ({ group_title: g.title.trim() || null, text })));
+
+/** Checkup Types & Standard Questions: owners add types and edit each type's statements; everyone can read them. */
+function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<typeof useCheckupTypes>; onClose: () => void }) {
   const { company, isOwner } = useMe();
-  const [kind, setKind] = useState<Kind>("org");
-  const [text, setText] = useState<string | null>(null);
+  const { active, reload } = checkupTypes;
+  const [key, setKey] = useState("org");
+  const type = active.find((t) => t.key === key) ?? active[0];
+  const [groups, setGroups] = useState<Group[] | null>(null);
   const [saved, setSaved] = useState("");
+  const [name, setName] = useState("");
+  const [adding, setAdding] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!type) return;
     let live = true;
-    setText(null); setMsg(null);
-    supabase.from("ss_checkup_standard_questions").select("group_title, text").eq("kind", kind).order("sort_order")
-      .then(({ data }) => { if (!live) return; const t = toText((data ?? []) as Line[]); setText(t); setSaved(t); });
+    setGroups(null); setMsg(null); setName(type.name);
+    supabase.from("ss_checkup_standard_questions").select("group_title, text").eq("kind", type.key).order("sort_order")
+      .then(({ data }) => { if (!live) return; const g = toGroups((data ?? []) as Line[]); setGroups(g); setSaved(JSON.stringify(fromGroups(g))); });
     return () => { live = false; };
-  }, [kind]);
+  }, [type?.key, type?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const edit = (fn: (g: Group[]) => Group[]) => setGroups((g) => (g ? fn(g.map((x) => ({ ...x, items: [...x.items] }))) : g));
+  const move = (gi: number, i: number, by: -1 | 1) => edit((g) => { const it = g[gi].items; [it[i], it[i + by]] = [it[i + by], it[i]]; return g; });
+  const dirty = groups !== null && JSON.stringify(fromGroups(groups)) !== saved;
 
   const save = async () => {
-    if (text === null) return;
-    const lines = fromText(text);
+    if (!groups || !type) return;
+    const lines = fromGroups(groups);
     setBusy(true); setMsg(null);
-    // Replace the whole list: add the new list first, then remove the old rows, so a failure part-way
-    // never leaves the type with no questions.
-    const { data: old } = await supabase.from("ss_checkup_standard_questions").select("id").eq("kind", kind);
+    // Add the new list first, then remove the old rows, so a failure part-way never leaves the type empty.
+    const { data: old } = await supabase.from("ss_checkup_standard_questions").select("id").eq("kind", type.key);
     const { error: addError } = lines.length
-      ? await supabase.from("ss_checkup_standard_questions").insert(lines.map((l, i) => ({ company_id: company.id, kind, group_title: l.group_title, sort_order: i + 1, text: l.text })))
+      ? await supabase.from("ss_checkup_standard_questions").insert(lines.map((l, i) => ({ company_id: company.id, kind: type.key, group_title: l.group_title, sort_order: i + 1, text: l.text })))
       : { error: null };
     const oldIds = ((old ?? []) as { id: string }[]).map((r) => r.id);
     const { error } = addError ? { error: addError } : oldIds.length
@@ -381,34 +418,99 @@ function StandardQuestions({ onClose }: { onClose: () => void }) {
       : { error: null };
     setBusy(false);
     if (error) { setMsg({ ok: false, text: friendlyError(error) }); return; }
-    const t = toText(lines);
-    setText(t); setSaved(t);
-    setMsg({ ok: true, text: `Saved ${lines.length} question${lines.length === 1 ? "" : "s"}. New ${KIND[kind]} checkups start from this list; checkups already running don't change.` });
+    const g = toGroups(lines);
+    setGroups(g); setSaved(JSON.stringify(lines));
+    setMsg({ ok: true, text: `Saved ${lines.length} statement${lines.length === 1 ? "" : "s"}. New ${type.name} checkups start from this list; checkups already running don't change.` });
+  };
+  const rename = async () => {
+    if (!type || !name.trim() || name.trim() === type.name) { setName(type?.name ?? ""); return; }
+    const { error } = await supabase.from("ss_checkup_types").update({ name: name.trim() }).eq("id", type.id);
+    if (error) setMsg({ ok: false, text: friendlyError(error) }); else reload();
+  };
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!adding?.trim()) return;
+    const { data, error } = await supabase.from("ss_checkup_types")
+      .insert({ company_id: company.id, name: adding.trim(), sort_order: Math.max(0, ...active.filter((t) => !t.is_one_off).map((t) => t.sort_order)) + 1 })
+      .select("key").single();
+    if (error) { setMsg({ ok: false, text: friendlyError(error) }); return; }
+    setAdding(null);
+    await reload();
+    setKey(data.key);
+  };
+  const remove = async () => {
+    if (!type || type.built_in || !confirm(`Remove the ${type.name} type? Past ${type.name} checkups keep their questions and results; it just won't be offered for new checkups.`)) return;
+    const { error } = await supabase.from("ss_checkup_types").update({ deleted_at: new Date().toISOString() }).eq("id", type.id);
+    if (error) { setMsg({ ok: false, text: friendlyError(error) }); return; }
+    await reload();
+    setKey("org");
   };
 
   return (
-    <Sheet title="Standard Questions" onClose={onClose}>
+    <Sheet title="Checkup Types & Standard Questions" onClose={onClose}>
       <div className="stack">
-        <Chips value={kind} onChange={setKind} options={(Object.keys(KIND) as Kind[]).map((k) => ({ value: k, label: KIND[k] }))} />
-        <p className="small muted">Every new {KIND[kind]} checkup starts with these, so results can be compared over time. Rewording a question starts a fresh comparison for it.</p>
-        {text === null ? <p className="muted">Loading…</p> : isOwner ? (
+        <div className="row wrap" style={{ gap: 8 }}>
+          <Chips value={type?.key ?? ""} onChange={setKey} options={active.map((t) => ({ value: t.key, label: t.name }))} />
+          {isOwner && adding === null && <button className="btn btn-sm" onClick={() => setAdding("")}><Plus size={16} />New Checkup Type</button>}
+        </div>
+        {adding !== null && (
+          <form className="card card-pad stack" style={{ gap: 8 }} onSubmit={create}>
+            <label className="field"><span>New Checkup Type</span>
+              <input className="input" autoFocus required placeholder="e.g. Safety, Customer Service" value={adding} onChange={(e) => setAdding(e.target.value)} />
+            </label>
+            <div className="row"><button className="btn btn-primary btn-sm">Create</button><button type="button" className="btn btn-sm btn-ghost" onClick={() => setAdding(null)}>Cancel</button></div>
+          </form>
+        )}
+        {!type ? null : (
           <>
-            <textarea className="input textarea" rows={16} value={text} onChange={(e) => setText(e.target.value)}
-              placeholder={"# A group heading\nA statement people agree or disagree with.\nAnother statement."} />
-            <p className="small muted">One statement per line. Start a line with # for a group heading.</p>
-            {msg && <p className={msg.ok ? "notice" : "error"}>{msg.text}</p>}
-            <button className="btn btn-primary" disabled={busy || text === saved} onClick={save}>{busy ? "Saving…" : "Save"}</button>
-          </>
-        ) : (
-          <>
-            {fromText(text).length === 0 ? <Empty>No Standard Questions for {KIND[kind]} yet.</Empty> : (
-              <ol className="standard-list">
-                {fromText(text).map((l, i, all) => (
-                  <li key={i}>{groupStart(all, i) && <strong className="checkup-group">{l.group_title}</strong>}<span>{l.text}</span></li>
+            {isOwner ? (
+              <label className="field"><span>Name</span>
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} />
+              </label>
+            ) : <h3>{type.name}</h3>}
+            {type.is_one_off ? (
+              <p className="notice">{type.name} is for one-off checkups: the questions are written for each checkup, so it has no Standard Questions.</p>
+            ) : groups === null ? <p className="muted">Loading…</p> : (
+              <>
+                <p className="small muted">Every new {type.name} checkup starts with these statements, so results can be compared over time. Rewording a statement starts a fresh comparison for it.</p>
+                {groups.length === 0 && <Empty>No Standard Questions for {type.name} yet.</Empty>}
+                {groups.map((g, gi) => (
+                  <div key={gi} className="card card-pad stack std-group">
+                    {isOwner ? (
+                      <div className="row" style={{ gap: 6 }}>
+                        <input className="input input-sm std-group-title" aria-label="Rename Group" placeholder="Group heading (optional)" value={g.title}
+                          onChange={(e) => edit((x) => { x[gi].title = e.target.value; return x; })} />
+                        <button className="link-btn" title="Remove this group and its statements" aria-label="Remove this group and its statements"
+                          onClick={() => confirm(`Remove ${g.title || "this group"} and its ${g.items.length} statement${g.items.length === 1 ? "" : "s"}?`) && edit((x) => x.filter((_, j) => j !== gi))}><X size={16} /></button>
+                      </div>
+                    ) : g.title && <strong className="checkup-group">{g.title}</strong>}
+                    <ol className="std-items">
+                      {g.items.map((t, i) => (
+                        <li key={i} className="row" style={{ gap: 6, alignItems: "flex-start" }}>
+                          {isOwner ? (
+                            <>
+                              <textarea className="input textarea std-item" rows={2} value={t} aria-label={`Statement ${i + 1}`}
+                                onChange={(e) => edit((x) => { x[gi].items[i] = e.target.value; return x; })} />
+                              <div className="std-tools">
+                                <button className="link-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(gi, i, -1)}><ArrowUp size={14} /></button>
+                                <button className="link-btn" aria-label="Move down" disabled={i === g.items.length - 1} onClick={() => move(gi, i, 1)}><ArrowDown size={14} /></button>
+                                <button className="link-btn" aria-label="Remove statement" onClick={() => edit((x) => { x[gi].items.splice(i, 1); return x; })}><Trash2 size={14} /></button>
+                              </div>
+                            </>
+                          ) : <span>{t}</span>}
+                        </li>
+                      ))}
+                    </ol>
+                    {isOwner && <button className="btn btn-sm btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => edit((x) => { x[gi].items.push(""); return x; })}><Plus size={14} />Add Statement</button>}
+                  </div>
                 ))}
-              </ol>
+                {isOwner && <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => edit((x) => [...x, { title: "", items: [""] }])}><Plus size={16} />Add Group</button>}
+              </>
             )}
-            <p className="small muted">Only owners can change Standard Questions.</p>
+            {msg && <p className={msg.ok ? "notice" : "error"}>{msg.text}</p>}
+            {isOwner && !type.is_one_off && <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? "Saving…" : dirty ? "Save" : "Saved"}</button>}
+            {isOwner && !type.built_in && <button className="btn btn-sm btn-danger" style={{ alignSelf: "flex-start" }} onClick={remove}><Trash2 size={16} />Remove Type</button>}
+            {!isOwner && <p className="small muted">Only owners can change checkup types and their Standard Questions.</p>}
           </>
         )}
       </div>
