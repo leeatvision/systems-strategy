@@ -31,7 +31,7 @@ const localDay = (ts: string) => isoDay(new Date(ts));
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
 const onTime = (t: TodoRow) => t.status === "done" && !!t.completed_at && localDay(t.completed_at) <= t.due_date;
 
-/** How the quarter went: Goals, To-Dos, Issues, meetings and the Scorecard, overall and per person. */
+/** How the quarter went: Goals, To-Dos, Issues, meetings and Key Numbers, overall and per person. */
 export function Insights() {
   const { me } = useMe();
   const { members } = useMembers();
@@ -177,8 +177,8 @@ export function Insights() {
               detail={`${data!.opened.length} added · ${data!.openIssues.length} open now`} to="/issues" />
             <Tile label="Meeting rating" value={s.avgRating === null ? null : Math.round(s.avgRating * 10) / 10}
               detail={s.ratings ? `Average of ${s.ratings} meeting${s.ratings === 1 ? "" : "s"}, out of 10` : "No rated meetings"} to="/meetings" />
-            <Tile label="Scorecard on track" value={pct(s.scoreOn, s.scoreTotal)} unit="%"
-              detail={s.scoreTotal ? `${s.scoreOn} of ${s.scoreTotal} weekly numbers` : "No weekly numbers entered"} to="/scorecard" />
+            <Tile label="Key Numbers on track" value={pct(s.scoreOn, s.scoreTotal)} unit="%"
+              detail={s.scoreTotal ? `${s.scoreOn} of ${s.scoreTotal} weekly numbers` : "No weekly numbers entered"} to="/key-numbers" />
           </div>
 
           {s.goalsTotal > 0 && (
@@ -197,7 +197,7 @@ export function Insights() {
               <Section title="To-Dos done on time, by week due">
                 <div className="card card-pad"><Bars data={s.todoWeeks} max={100} unit="%" goal={TODO_GOAL} /></div>
               </Section>
-              <Section title="Scorecard numbers on track, by week">
+              <Section title="Key Numbers on track, by week">
                 <div className="card card-pad"><Bars data={s.scoreWeeks} max={100} unit="%" /></div>
               </Section>
               <Section title="Issues resolved, by week">
@@ -214,7 +214,7 @@ export function Insights() {
               <>
               <div className="card table-scroll person-table">
                 <table className="insight-table">
-                  <thead><tr><th>Person</th><th>Goals done</th><th>To-Dos on time</th><th>Overdue now</th><th>Open Issues</th><th>Scorecard</th></tr></thead>
+                  <thead><tr><th>Person</th><th>Goals done</th><th>To-Dos on time</th><th>Overdue now</th><th>Open Issues</th><th>Key Numbers</th></tr></thead>
                   <tbody>
                     {people.map((p) => (
                       <tr key={p.m.id}>
@@ -238,7 +238,7 @@ export function Insights() {
                       <dt>To-Dos on time</dt><dd>{p.todosTotal ? <PctCell n={p.todosOnTime} d={p.todosTotal} goal={TODO_GOAL} /> : "–"}</dd>
                       <dt>Overdue now</dt><dd>{p.overdue ? <span className="badge badge-red">{p.overdue}</span> : "0"}</dd>
                       <dt>Open Issues</dt><dd>{p.issues}</dd>
-                      <dt>Scorecard</dt><dd>{p.scoreTotal ? <PctCell n={p.scoreOn} d={p.scoreTotal} /> : "–"}</dd>
+                      <dt>Key Numbers</dt><dd>{p.scoreTotal ? <PctCell n={p.scoreOn} d={p.scoreTotal} /> : "–"}</dd>
                     </dl>
                   </li>
                 ))}

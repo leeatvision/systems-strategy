@@ -74,7 +74,7 @@ export interface Recap {
 }
 
 export const AGENDA_LABEL: Record<AgendaType, string> = {
-  good_news: "Good News", check_in: "Check-In", scorecard: "Scorecard", goal_review: "Goal Review", headlines: "Headlines",
+  good_news: "Good News", check_in: "Check-In", scorecard: "Key Numbers", goal_review: "Goal Review", headlines: "Headlines",
   todo_list: "To-Do List", discuss_solve: "Discuss and Solve", conclude: "Conclude", custom: "Custom Section",
 };
 
@@ -88,7 +88,7 @@ export const CADENCE: Record<MeetingRow["cadence"], string> = {
 /** Standard 90-minute weekly agenda, used for new meetings. */
 export const STANDARD_AGENDA: { item_type: AgendaType; title: string; minutes: number; fill_time?: boolean }[] = [
   { item_type: "good_news", title: "Good News", minutes: 5 },
-  { item_type: "scorecard", title: "Scorecard", minutes: 5 },
+  { item_type: "scorecard", title: "Key Numbers", minutes: 5 },
   { item_type: "goal_review", title: "Goal Review", minutes: 5 },
   { item_type: "headlines", title: "Headlines", minutes: 5 },
   { item_type: "todo_list", title: "To-Do List", minutes: 5 },

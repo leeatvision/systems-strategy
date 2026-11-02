@@ -82,7 +82,7 @@ export function Scorecard() {
   };
 
   if (card === undefined) return <p className="muted">Loading…</p>;
-  if (card === null) return <Empty>There's no Scorecard yet. It's created with the first meeting during set-up.</Empty>;
+  if (card === null) return <Empty>There are no Key Numbers yet. It's created with the first meeting during set-up.</Empty>;
 
   const sections = SECTION_ORDER.map((p) => {
     const list = measurables.filter((m) => (m.period_override ?? card.period) === p);
@@ -100,7 +100,7 @@ export function Scorecard() {
       rows.push([m.title, o ? fullName(o) : "", PERIOD_LABEL[s.period], p, v.value, goalText(m),
         onTrack(v.value, v.goal_value, v.goal_value_upper, v.comparison) === false ? "off" : "on"]);
     }
-    downloadCsv(`scorecard-${today()}`, ["Measurable", "Owner", "Period", "Period start", "Value", "Goal", "On track"], rows);
+    downloadCsv(`key-numbers-${today()}`, ["Number", "Owner", "Period", "Period start", "Value", "Goal", "On track"], rows);
   };
 
   return (
@@ -109,11 +109,11 @@ export function Scorecard() {
         <h1>{card.title}</h1>
         <span className="spacer" />
         <button className="btn btn-sm btn-ghost" onClick={exportCsv} aria-label="Export to CSV" title="Export to CSV"><Download size={18} /></button>
-        <button className="btn btn-sm btn-ghost" onClick={() => setSettings(true)} aria-label="Scorecard settings" title="Settings"><Settings size={18} /></button>
+        <button className="btn btn-sm btn-ghost" onClick={() => setSettings(true)} aria-label="Key Numbers settings" title="Settings"><Settings size={18} /></button>
         <button className="btn btn-primary btn-sm" onClick={() => setEditing("new")}><Plus size={16} />Add</button>
       </div>
       {error && <p className="error">{error}</p>}
-      {measurables.length === 0 && <Empty>No measurables yet. Add the handful of numbers that tell you the business is on track.</Empty>}
+      {measurables.length === 0 && <Empty>No Key Numbers yet. Add the handful of numbers that tell you the business is on track.</Empty>}
 
       {sections.map((s) => (
         <Section key={s.period} title={PERIOD_LABEL[s.period]} count={s.list.length}>
@@ -164,7 +164,7 @@ function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onE
       <table className="sc">
         <thead>
           <tr>
-            <th className="sc-title">Measurable · goal</th>
+            <th className="sc-title">Number · goal</th>
             {periods.map((p) => <th key={p} className="sc-head">{periodLabel(period, p)}</th>)}
             {card.show_total && <th className="sc-head">Total</th>}
             {card.show_average && <th className="sc-head">Avg</th>}
@@ -284,7 +284,7 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
   };
 
   return (
-    <Sheet title={m ? "Measurable" : "New measurable"} onClose={onClose}>
+    <Sheet title={m ? "Edit Number" : "New Number"} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field"><span>Name</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
         <div className="grid-2">
@@ -325,13 +325,13 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
         </label>
         <p className="small muted">Changing the goal doesn't recolour past numbers: each number keeps the goal it was entered against.</p>
         {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary">{m ? "Save" : "Add measurable"}</button>
+        <button className="btn btn-primary">{m ? "Save" : "Add Number"}</button>
         {m && <div className="row wrap">
           <button type="button" className="btn btn-sm" onClick={() => move(-1)} disabled={all[0]?.id === m.id}><ArrowUp size={16} />Up</button>
           <button type="button" className="btn btn-sm" onClick={() => move(1)} disabled={all.at(-1)?.id === m.id}><ArrowDown size={16} />Down</button>
           <span className="spacer" />
           <button type="button" className="btn btn-sm btn-danger"
-            onClick={() => confirm("Move this measurable to the recycle bin? Its numbers are kept.") && run(supabase.from("ss_measurables").update({ deleted_at: new Date().toISOString() }).eq("id", m.id))}>
+            onClick={() => confirm("Move this number to the recycle bin? Its history is kept.") && run(supabase.from("ss_measurables").update({ deleted_at: new Date().toISOString() }).eq("id", m.id))}>
             <Trash2 size={16} />Recycle bin
           </button>
         </div>}
@@ -354,7 +354,7 @@ function SettingsSheet({ card, onClose, onSaved }: { card: Card; onClose: () => 
     </label>
   );
   return (
-    <Sheet title="Scorecard settings" onClose={onClose}>
+    <Sheet title="Key Numbers Settings" onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field"><span>Name</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
         <label className="field"><span>{PERIOD_LABEL[card.period]} columns to show</span>

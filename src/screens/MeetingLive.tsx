@@ -265,13 +265,13 @@ function ScorecardReview({ p }: { p: SectionProps }) {
     })();
   }, [p.meeting.id, p.tick, weeks]);
   if (!rows) return <p className="muted">Loading…</p>;
-  if (!rows.length) return <Empty>No weekly measurables on this meeting's Scorecard.</Empty>;
+  if (!rows.length) return <Empty>No weekly Key Numbers for this meeting yet.</Empty>;
   return (
     <div className="stack">
       <p className="muted">Each owner reports on track or off track. Anything off track goes to Issues; discuss it there, not here.</p>
       <div className="card sc-wrap">
         <table className="sc">
-          <thead><tr><th className="sc-title">Measurable · goal</th>{weeks.map((w) => <th key={w} className="sc-head">{periodLabel("week", w)}</th>)}<th /></tr></thead>
+          <thead><tr><th className="sc-title">Number · goal</th>{weeks.map((w) => <th key={w} className="sc-head">{periodLabel("week", w)}</th>)}<th /></tr></thead>
           <tbody>
             {rows.map(({ m, v }) => {
               const last = v.at(-1);
@@ -291,7 +291,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
           </tbody>
         </table>
       </div>
-      <Link to="/scorecard" className="small">Missing a number? Enter it on the Scorecard.</Link>
+      <Link to="/key-numbers" className="small">Missing a number? Enter it on Key Numbers.</Link>
     </div>
   );
 }

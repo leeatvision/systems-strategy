@@ -1,6 +1,6 @@
 # Systems Strategy
 
-A business-planning app: Goals, To-Dos, Issues, Headlines, Scorecard, Weekly Meetings, Vision and Plan, Org Chart, processes and checkups. A mobile-first PWA on Supabase that works offline and sends push notifications.
+A business-planning app: Goals, To-Dos, Issues, Headlines, Key Numbers, Weekly Meetings, Vision and Plan, Org Chart, processes and checkups. A mobile-first PWA on Supabase that works offline and sends push notifications.
 
 - [docs/api.md](docs/api.md): how the app talks to its server: sign-in, tables, database functions, files, live updates, calendar feed and push
 - `supabase/migrations/`: database definitions

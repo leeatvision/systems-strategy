@@ -56,7 +56,8 @@ function Gate() {
           <Route path="meetings/:id" element={<MeetingDetail />} />
           <Route path="meetings/:id/live" element={<MeetingLive />} />
           <Route path="meetings/:id/history" element={<MeetingHistory />} />
-          <Route path="scorecard" element={<Scorecard />} />
+          <Route path="key-numbers" element={<Scorecard />} />
+          <Route path="scorecard" element={<Moved to="/key-numbers" />} />
           <Route path="vision-plan" element={<VisionPlan />} />
           <Route path="org-chart" element={<ChartScreen />} />
           <Route path="chart" element={<Moved to="/org-chart" />} />

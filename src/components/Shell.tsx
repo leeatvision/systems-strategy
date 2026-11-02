@@ -16,7 +16,7 @@ const main = [
 const more = [
   { to: "/headlines", label: "Headlines", icon: Megaphone },
   { to: "/meetings", label: "Meetings", icon: Video },
-  { to: "/scorecard", label: "Scorecard", icon: BarChart3 },
+  { to: "/key-numbers", label: "Key Numbers", icon: BarChart3 },
   { to: "/vision-plan", label: "Vision and Plan", icon: Compass },
   { to: "/org-chart", label: "Org Chart", icon: Network },
   { to: "/processes", label: "Processes", icon: ListOrdered },
