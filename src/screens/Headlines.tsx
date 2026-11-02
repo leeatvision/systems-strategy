@@ -3,14 +3,12 @@ import { Check, CircleAlert, Download, Plus, Printer, RotateCcw, Trash2 } from "
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers, useOpenParam, type Headline } from "../lib/data";
-import { Comments } from "../components/Comments";
 import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { downloadCsv } from "../lib/csv";
 import { fullName } from "../lib/supabase";
 import { addDays, today } from "../lib/data";
-import { Attachments } from "../components/Attachments";
 import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
-import { Sheet } from "../components/Sheet";
+import { ItemPanel } from "../components/ItemPanel";
 
 const KIND: Record<Headline["kind"], string> = { general: "General", customer: "Customer", employee: "Employee" };
 
@@ -121,49 +119,88 @@ export function Headlines() {
           </Section>
         )}
       </>}
-      {editing && <HeadlineSheet h={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <HeadlineSheet h={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
 
-function HeadlineSheet({ h, members, onClose, onSaved }: {
-  h: Headline; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void;
+function HeadlineSheet({ h: start, members, onClose, onSaved, onChanged }: {
+  h: Headline; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void;
 }) {
   const { me, company } = useMe();
-  const [form, setForm] = useState({ title: h.title, description: h.description ?? "", owner_member_id: h.owner_member_id, kind: h.kind });
+  const { byId } = useMembers();
+  const [h, setH] = useState(start);
+  const blank = () => ({ title: h.title, description: h.description ?? "", owner_member_id: h.owner_member_id, kind: h.kind });
+  const [form, setForm] = useState(blank);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
-  const run = async (p: PromiseLike<{ error: unknown }>) => {
+  const [notice, setNotice] = useState("");
+  const run = async (p: PromiseLike<{ error: unknown }>, after: () => void) => {
     const { error } = await p;
-    if (error) setError(friendlyError(error)); else onSaved();
+    if (error) setError(friendlyError(error)); else { setError(""); after(); }
   };
-  return (
-    <Sheet title="Headline" onClose={onClose}>
-      <form className="stack" onSubmit={(e) => { e.preventDefault(); run(supabase.from("ss_headlines").update({ ...form, title: form.title.trim(), description: form.description.trim() || null }).eq("id", h.id)); }}>
-        <label className="field"><span>Headline</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-        <label className="field"><span>Details</span><textarea className="input textarea" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-        <div className="grid-2">
-          <label className="field"><span>Owner</span><OwnerSelect members={members} allowNone value={form.owner_member_id} onChange={(v) => setForm({ ...form, owner_member_id: v })} /></label>
-          <label className="field"><span>Kind</span>
-            <select className="select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as Headline["kind"] })}>
-              {(Object.keys(KIND) as Headline["kind"][]).map((k) => <option key={k} value={k}>{KIND[k]}</option>)}
-            </select>
-          </label>
-        </div>
-        {error && <p className="error">{error}</p>}
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    const row = { ...form, title: form.title.trim(), description: form.description.trim() || null };
+    run(supabase.from("ss_headlines").update(row).eq("id", h.id), () => { setH({ ...h, ...row }); setEditing(false); onChanged(); });
+  };
+  const review = (reviewed: boolean) => {
+    const status = reviewed ? "reviewed" : "to_review";
+    run(supabase.from("ss_headlines").update({ status }).eq("id", h.id), () => { setH({ ...h, status }); onChanged(); });
+  };
+  const toIssues = () => run(supabase.from("ss_issues").insert({
+    company_id: company.id, meeting_id: h.meeting_id, owner_member_id: h.owner_member_id, title: h.title,
+    description: h.description, source_type: "headline", source_id: h.id, created_by: me.id,
+  }), () => setNotice("Added to Issues."));
+  const toBin = () => confirm("Move this Headline to the recycle bin?")
+    && run(supabase.from("ss_headlines").update({ deleted_at: new Date().toISOString() }).eq("id", h.id), onSaved);
+  const owner = byId(h.owner_member_id);
+  const reviewed = h.status === "reviewed";
+
+  const edit = (
+    <form className="stack" onSubmit={save}>
+      <label className="field"><span>Headline</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+      <label className="field"><span>Details</span><textarea className="input textarea" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
+      <div className="grid-2">
+        <label className="field"><span>Owner</span><OwnerSelect members={members} allowNone value={form.owner_member_id} onChange={(v) => setForm({ ...form, owner_member_id: v })} /></label>
+        <label className="field"><span>Kind</span>
+          <select className="select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as Headline["kind"] })}>
+            {(Object.keys(KIND) as Headline["kind"][]).map((k) => <option key={k} value={k}>{KIND[k]}</option>)}
+          </select>
+        </label>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <div className="row">
         <button className="btn btn-primary">Save</button>
-        <div className="row wrap">
-          <button type="button" className="btn btn-sm" onClick={() => run(supabase.from("ss_issues").insert({
-            company_id: company.id, meeting_id: h.meeting_id, owner_member_id: h.owner_member_id, title: h.title,
-            description: h.description, source_type: "headline", source_id: h.id, created_by: me.id,
-          }))}><CircleAlert size={16} />Drop into Issues</button>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm btn-danger" onClick={() => run(supabase.from("ss_headlines").update({ deleted_at: new Date().toISOString() }).eq("id", h.id))}>
-            <Trash2 size={16} />Recycle bin
-          </button>
+        <button type="button" className="btn btn-ghost" onClick={() => { setForm(blank()); setEditing(false); setError(""); }}>Cancel</button>
+      </div>
+    </form>
+  );
+
+  return (
+    <ItemPanel heading="Headline" itemType="headline" itemId={h.id} onClose={onClose} editing={editing} onEdit={() => { setForm(blank()); setEditing(true); }} edit={edit}
+      actions={[
+        { label: "Drop into Issues", icon: <CircleAlert size={16} />, onSelect: toIssues },
+        { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
+      ]}>
+      <div className="card goal-summary">
+        <div className="panel-title">
+          <h2>{h.title}</h2>
+          <span className={`badge badge-lg ${reviewed ? "badge-done" : "badge-warn"}`} style={{ cursor: "default" }}>{reviewed ? "Reviewed" : "To review"}</span>
         </div>
-      </form>
-      <div style={{ marginTop: 20 }}><Attachments itemType="headline" itemId={h.id} /></div>
-      <div style={{ marginTop: 20 }}><Comments itemType="headline" itemId={h.id} /></div>
-    </Sheet>
+        <div className="goal-meta">
+          <span>{owner ? fullName(owner) : "No owner"}</span>
+          <span>{KIND[h.kind]}</span>
+          <span>Added {fmtDay(h.created_at)}</span>
+        </div>
+        {h.description && <p className="goal-desc">{h.description}</p>}
+      </div>
+      {(error || notice) && <p className={error ? "error" : "notice"}>{error || notice}</p>}
+      <div className="row">
+        {reviewed
+          ? <button className="btn btn-sm" onClick={() => review(false)}><RotateCcw size={16} />Back to review</button>
+          : <button className="btn btn-sm btn-primary" onClick={() => review(true)}><Check size={16} />Reviewed</button>}
+      </div>
+    </ItemPanel>
   );
 }

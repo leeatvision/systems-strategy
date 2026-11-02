@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BadgeCheck, Copy, GripVertical, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BadgeCheck, Copy, GripVertical, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMembers } from "../lib/data";
-import { Avatar, Empty, OwnerChips } from "../components/ui";
+import { Avatar, Empty, Menu, OwnerChips } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
 interface Chart { id: string; title: string; status: "draft" | "official" | "archived"; published_at: string | null; updated_at: string }
@@ -214,28 +214,36 @@ export function ChartScreen() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <div className="page-head goals-head">
         <h1>{chart.title}</h1>
-        <span className={`badge ${chart.status === "official" ? "badge-green" : "badge-warn"}`}>{chart.status === "official" ? "Official" : "Draft"}</span>
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost no-print" onClick={() => print()} aria-label="Print" title="Print"><Printer size={18} /></button>
+        <Menu items={[
+          { label: "Add a Top Position", icon: <Plus size={16} />, onSelect: () => setEditing({ position: null, parent: null }), hidden: !isOwner },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Make a draft copy", icon: <Copy size={16} />, onSelect: () => createChart(chart), hidden: !isOwner || chart.status !== "official" },
+          { label: "Archive draft", icon: <Archive size={16} />, danger: true, hidden: !isOwner || chart.status === "official",
+            onSelect: async () => { if (confirm("Archive this draft?")) { await supabase.from("ss_org_charts").update({ status: "archived" }).eq("id", chart.id); load(""); } } },
+        ]} />
       </div>
-      <div className="row wrap no-print">
-        {charts.length > 1 && (
-          <select className="select" style={{ width: "auto" }} value={chart.id} onChange={(e) => load(e.target.value)}>
-            {charts.map((c) => <option key={c.id} value={c.id}>{c.status === "official" ? "Official" : "Draft"} · {fmtDay(c.updated_at, true)}</option>)}
-          </select>
+      <div className="card card-pad goal-summary no-print">
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className={`badge badge-lg ${chart.status === "official" ? "badge-green" : "badge-warn"}`} style={{ cursor: "default" }}>{chart.status === "official" ? "Official" : "Draft"}</span>
+          <span className="small muted">{positions.length} position{positions.length === 1 ? "" : "s"} · updated {fmtDay(chart.updated_at, true)}</span>
+          <span className="spacer" />
+          {charts.length > 1 && (
+            <select className="select select-sm" style={{ width: "auto" }} value={chart.id} onChange={(e) => load(e.target.value)} aria-label="Version">
+              {charts.map((c) => <option key={c.id} value={c.id}>{c.status === "official" ? "Official" : "Draft"} · {fmtDay(c.updated_at, true)}</option>)}
+            </select>
+          )}
+        </div>
+        {isOwner && chart.status !== "official" && (
+          <div className="row" style={{ gap: 8 }}>
+            <span className="small muted" style={{ flex: 1 }}>A draft. Make it official when the leadership team agrees.</span>
+            <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
+          </div>
         )}
-        {isOwner && <button className="btn btn-sm" onClick={() => setEditing({ position: null, parent: null })}><Plus size={16} />Top Position</button>}
-        <span className="spacer" />
-        {!isOwner ? null : chart.status === "official"
-          ? <button className="btn btn-sm" onClick={() => createChart(chart)}><Copy size={16} />Make a draft copy</button>
-          : <>
-              <button className="btn btn-sm btn-ghost" onClick={async () => { if (confirm("Archive this draft?")) { await supabase.from("ss_org_charts").update({ status: "archived" }).eq("id", chart.id); load(""); } }}>Archive draft</button>
-              <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
-            </>}
+        <p className="small muted" style={{ margin: 0 }}>{isOwner ? "Tap a position to edit it or add one under it." : "Only owners can change the Org Chart."}</p>
       </div>
-      {!isOwner && <p className="small muted no-print">Only owners can change the Org Chart.</p>}
       {error && <p className="error">{error}</p>}
       {isOwner && positions.length > 0 && <p className="small muted no-print">Drag a Position by its handle onto another Position to move it there, along with everyone under it.</p>}
       {drag && <div data-drop="top" className={`drop-top no-print${drag.over === "top" ? " drop-ok" : ""}`}>Drop here to make it a top Position</div>}

@@ -8,6 +8,7 @@ export interface Notification {
   item_id: string;
   actor_id: string | null;
   summary: string;
+  title?: string | null;
   read_at: string | null;
   created_at: string;
 }
@@ -17,6 +18,9 @@ export function itemLink(itemType: string, itemId: string): string {
   if (itemType === "goal") return `/goals/${itemId}`;
   if (itemType === "process") return `/processes/${itemId}`;
   if (itemType === "todo_list") return "/todos";
+  if (itemType === "key_numbers") return "/key-numbers";
+  if (itemType === "goals") return "/goals";
+  if (itemType === "meeting") return `/meetings/${itemId}`;
   if (itemType === "settings") return "/settings/notifications";
   const page = { todo: "todos", issue: "issues", headline: "headlines" }[itemType];
   return page ? `/${page}?open=${itemId}` : "/";

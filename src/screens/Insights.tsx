@@ -7,7 +7,7 @@ import {
   addDays, currentQuarter, isoDay, qLabel, quarterEnd, shiftQuarter, today, useMembers,
   type Issue, type Quarter, type Goal, type Todo,
 } from "../lib/data";
-import { onTrack, periodLabel, periodStart, type Measurable, type MValue, type Period, type Scorecard } from "../lib/scorecard";
+import { onTrack, periodStart, scheduleOf, timeline, type Measurable, type MeetingSchedule, type MValue, type Period, type Scorecard } from "../lib/scorecard";
 import type { Session } from "../lib/meetings";
 import { Avatar, Empty, Section } from "../components/ui";
 
@@ -24,6 +24,7 @@ type ValueRow = Pick<MValue, "measurable_id" | "period_start" | "value" | "goal_
 interface Data {
   goals: Goal[]; todos: TodoRow[]; overdue: TodoRow[]; solved: IssueRow[]; opened: IssueRow[]; openIssues: IssueRow[];
   sessions: SessionRow[]; meetings: Record<string, string>; measurables: MeasurableRow[]; values: ValueRow[];
+  sched: MeetingSchedule | null;
 }
 
 const quarterStart = (q: Quarter) => isoDay(new Date(q.year, (q.quarter - 1) * 3, 1));
@@ -62,8 +63,8 @@ export function Insights() {
           .eq("status", "open").is("deleted_at", null).is("archived_at", null),
         supabase.from("ss_meeting_sessions").select("id, meeting_id, started_at, summary").eq("status", "ended").is("deleted_at", null)
           .gte("started_at", `${start}T00:00:00`).lte("started_at", `${end}T23:59:59`).order("started_at"),
-        supabase.from("ss_meetings").select("id, title"),
-        supabase.from("ss_scorecards").select("id, period"),
+        supabase.from("ss_meetings").select("id, title, first_meeting_at, cadence"),
+        supabase.from("ss_scorecards").select("id, period, meeting_id").order("created_at"),
         supabase.from("ss_measurables").select("id, scorecard_id, owner_member_id, title, period_override").is("deleted_at", null),
         supabase.from("ss_measurable_values").select("measurable_id, period_start, value, goal_value, goal_value_upper, comparison")
           .gte("period_start", start).lte("period_start", end),
@@ -81,6 +82,9 @@ export function Insights() {
         sessions: (sessions.data as SessionRow[]).slice().sort((a, b) => a.started_at.localeCompare(b.started_at)),
         meetings: Object.fromEntries((meetings.data as { id: string; title: string }[]).map((m) => [m.id, m.title])),
         measurables: weekly, values: values.data as ValueRow[],
+        // Weeks are named by the Key Numbers meeting's date in them, like Key Numbers itself.
+        sched: scheduleOf((meetings.data as { id: string; first_meeting_at: string | null; cadence: string }[])
+          .find((m) => m.id === (cards.data as { meeting_id: string | null }[]).find((c) => c.meeting_id)?.meeting_id)),
       });
     })();
     return () => { live = false; };
@@ -96,6 +100,7 @@ export function Insights() {
 
   const s = useMemo(() => {
     if (!data) return null;
+    const tl = timeline(data.sched);
     const goalsDone = data.goals.filter((r) => r.status === "done").length;
     const company = data.goals.filter((r) => r.goal_type === "company");
     const byStatus = (st: Goal["status"]) => data.goals.filter((r) => r.status === st).length;
@@ -116,17 +121,17 @@ export function Insights() {
       todoWeeks: weeks.map((w) => {
         const due = data.todos.filter((t) => weekOf(t.due_date) === w);
         const ok = due.filter(onTime).length;
-        return { label: periodLabel("week", w), value: pct(ok, due.length), text: due.length ? `${ok} of ${due.length} done on time` : "No To-Dos due" };
+        return { label: tl.label("week", w), value: pct(ok, due.length), text: due.length ? `${ok} of ${due.length} done on time` : "No To-Dos due" };
       }),
       issueWeeks: weeks.map((w) => {
         const n = data.solved.filter((i) => i.solved_at && weekOf(localDay(i.solved_at)) === w).length;
         const added = data.opened.filter((i) => weekOf(localDay(i.created_at)) === w).length;
-        return { label: periodLabel("week", w), value: n, text: `${n} resolved, ${added} added` };
+        return { label: tl.label("week", w), value: n, text: `${n} resolved, ${added} added` };
       }),
       scoreWeeks: weeks.map((w) => {
         const vs = scored.filter((v) => v.period_start === w);
         const ok = vs.filter((v) => v.ok).length;
-        return { label: periodLabel("week", w), value: pct(ok, vs.length), text: vs.length ? `${ok} of ${vs.length} numbers on track` : "No numbers entered" };
+        return { label: tl.label("week", w), value: pct(ok, vs.length), text: vs.length ? `${ok} of ${vs.length} numbers on track` : "No numbers entered" };
       }),
       meetingBars: data.sessions.map((x) => ({
         label: new Date(x.started_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
@@ -194,13 +199,13 @@ export function Insights() {
 
           {weeks.length > 0 && (
             <div className="insight-charts">
-              <Section title="To-Dos done on time, by week due">
+              <Section title="To-Dos done on time, by meeting week">
                 <div className="card card-pad"><Bars data={s.todoWeeks} max={100} unit="%" goal={TODO_GOAL} /></div>
               </Section>
-              <Section title="Key Numbers on track, by week">
+              <Section title="Key Numbers on track, by meeting week">
                 <div className="card card-pad"><Bars data={s.scoreWeeks} max={100} unit="%" /></div>
               </Section>
-              <Section title="Issues resolved, by week">
+              <Section title="Issues resolved, by meeting week">
                 <div className="card card-pad"><Bars data={s.issueWeeks} max={Math.max(4, ...s.issueWeeks.map((w) => w.value ?? 0))} /></div>
               </Section>
               <Section title="Meeting ratings">

@@ -47,6 +47,9 @@ function link(itemType: string, itemId: string): string {
   if (itemType === "goal") return `#/goals/${itemId}`;
   if (itemType === "process") return `#/processes/${itemId}`;
   if (itemType === "todo_list") return "#/todos";
+  if (itemType === "key_numbers") return "#/key-numbers";
+  if (itemType === "goals") return "#/goals";
+  if (itemType === "meeting") return `#/meetings/${itemId}`;
   if (itemType === "settings") return "#/settings/notifications";
   const page: Record<string, string> = { todo: "todos", issue: "issues", headline: "headlines" };
   return page[itemType] ? `#/${page[itemType]}?open=${itemId}` : "#/notifications";
@@ -82,7 +85,8 @@ Deno.serve(async (req) => {
       const { data: a } = await db.from("ss_members").select("first_name").eq("id", n.actor_id).maybeSingle();
       if (a?.first_name) actor = a.first_name;
     }
-    const title = n.kind === "mention" ? `${actor} mentioned you`
+    const title = n.title ? n.title
+      : n.kind === "mention" ? `${actor} mentioned you`
       : n.kind === "assigned" ? `New To-Do from ${actor}`
       : n.kind === "reminder" ? "Your To-Dos today"
       : "Notification";

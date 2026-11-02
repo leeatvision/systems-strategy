@@ -4,11 +4,9 @@ import { downloadCsv } from "../lib/csv";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { addDays, fmtDay, today, useMeetings, useMembers, useOpenParam, type Issue } from "../lib/data";
-import { Comments } from "../components/Comments";
 import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
-import { Attachments } from "../components/Attachments";
 import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
-import { Sheet } from "../components/Sheet";
+import { ItemPanel } from "../components/ItemPanel";
 
 const SOURCE: Record<string, string> = { goal: "From a Goal", todo: "From a To-Do", headline: "From a Headline", measurable: "From Key Numbers" };
 
@@ -138,77 +136,108 @@ export function Issues() {
         )}
       </>}
 
-      {editing && <IssueSheet issue={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <IssueSheet issue={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
 
-function IssueSheet({ issue, members, onClose, onSaved }: {
-  issue: Issue; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void;
+function IssueSheet({ issue: start, members, onClose, onSaved, onChanged }: {
+  issue: Issue; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void;
 }) {
   const { me, company } = useMe();
-  const [form, setForm] = useState({ title: issue.title, description: issue.description ?? "", owner_member_id: issue.owner_member_id });
+  const { byId } = useMembers();
+  const [issue, setIssue] = useState(start);
+  const blank = () => ({ title: issue.title, description: issue.description ?? "", owner_member_id: issue.owner_member_id });
+  const [form, setForm] = useState(blank);
+  const [editing, setEditing] = useState(false);
   const [todo, setTodo] = useState<{ owner: string | null; due: string } | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const run = async (p: PromiseLike<{ error: unknown }>) => {
+  const run = async (p: PromiseLike<{ error: unknown }>, after: () => void) => {
     setBusy(true);
     const { error } = await p;
     setBusy(false);
-    if (error) setError(friendlyError(error)); else onSaved();
+    if (error) setError(friendlyError(error)); else { setError(""); after(); }
   };
   const save = (e: FormEvent) => {
     e.preventDefault();
-    run(supabase.from("ss_issues").update({ ...form, title: form.title.trim(), description: form.description.trim() || null }).eq("id", issue.id));
+    const row = { ...form, title: form.title.trim(), description: form.description.trim() || null };
+    run(supabase.from("ss_issues").update(row).eq("id", issue.id), () => { setIssue({ ...issue, ...row }); setEditing(false); onChanged(); });
+  };
+  const resolve = (solved: boolean) => {
+    const change = solved ? { status: "solved", solved_at: new Date().toISOString(), priority: null } : { status: "open", solved_at: null };
+    run(supabase.from("ss_issues").update(change).eq("id", issue.id), () => { setIssue({ ...issue, ...change } as Issue); onChanged(); });
   };
   const makeTodo = () => todo && run(supabase.from("ss_todos").insert({
     company_id: company.id, meeting_id: issue.meeting_id, owner_member_id: todo.owner ?? me.id, title: issue.title,
     description: issue.description, due_date: todo.due, source_type: "issue", source_id: issue.id, created_by: me.id,
-  }));
+  }), () => { setTodo(null); setNotice(`To-Do added for ${byId(todo.owner ?? me.id)?.first_name ?? "you"}, due ${fmtDay(todo.due)}.`); });
+  const toBin = () => confirm("Move this Issue to the recycle bin?")
+    && run(supabase.from("ss_issues").update({ deleted_at: new Date().toISOString() }).eq("id", issue.id), onSaved);
+  const startTodo = () => setTodo({ owner: issue.owner_member_id ?? me.id, due: addDays(today(), 7) });
+  const owner = byId(issue.owner_member_id);
+  const solved = issue.status === "solved";
+
+  const edit = (
+    <form className="stack" onSubmit={save}>
+      <label className="field"><span>Title</span>
+        <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+      </label>
+      <label className="field"><span>Details</span>
+        <textarea className="input textarea" rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      </label>
+      <label className="field"><span>Owner</span>
+        <OwnerSelect members={members} allowNone value={form.owner_member_id} onChange={(v) => setForm({ ...form, owner_member_id: v })} />
+      </label>
+      {error && <p className="error">{error}</p>}
+      <div className="row">
+        <button className="btn btn-primary" disabled={busy}>Save</button>
+        <button type="button" className="btn btn-ghost" onClick={() => { setForm(blank()); setEditing(false); setError(""); }}>Cancel</button>
+      </div>
+    </form>
+  );
 
   return (
-    <Sheet title="Issue" onClose={onClose}>
-      <form className="stack" onSubmit={save}>
-        <label className="field"><span>Title</span>
-          <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-        </label>
-        <label className="field"><span>Details</span>
-          <textarea className="input textarea" rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        </label>
-        <label className="field"><span>Owner</span>
-          <OwnerSelect members={members} allowNone value={form.owner_member_id} onChange={(v) => setForm({ ...form, owner_member_id: v })} />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary" disabled={busy}>Save</button>
-      </form>
-
-      <div className="stack" style={{ marginTop: 16 }}>
-        {todo ? (
-          <div className="card card-pad stack" style={{ gap: 10 }}>
-            <strong style={{ color: "var(--color-fg)" }}>New To-Do from this Issue</strong>
-            <div className="grid-2">
-              <label className="field"><span>For</span><OwnerSelect members={members} value={todo.owner} onChange={(v) => setTodo({ ...todo, owner: v })} /></label>
-              <label className="field"><span>Due</span><input className="input" type="date" value={todo.due} onChange={(e) => setTodo({ ...todo, due: e.target.value })} /></label>
-            </div>
-            <div className="row"><button className="btn btn-primary btn-sm" disabled={busy} onClick={makeTodo}>Add To-Do</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setTodo(null)}>Cancel</button></div>
-          </div>
-        ) : (
-          <div className="row wrap">
-            <button className="btn btn-sm" onClick={() => setTodo({ owner: issue.owner_member_id ?? me.id, due: addDays(today(), 7) })}>
-              <SquareCheck size={16} />Make a To-Do
-            </button>
-            <span className="spacer" />
-            <button className="btn btn-sm btn-danger" disabled={busy}
-              onClick={() => run(supabase.from("ss_issues").update({ deleted_at: new Date().toISOString() }).eq("id", issue.id))}>
-              <Trash2 size={16} />Recycle bin
-            </button>
-          </div>
-        )}
+    <ItemPanel heading="Issue" itemType="issue" itemId={issue.id} onClose={onClose} editing={editing} onEdit={() => { setForm(blank()); setEditing(true); }} edit={edit}
+      actions={[
+        { label: "Make a To-Do", icon: <SquareCheck size={16} />, onSelect: startTodo },
+        { label: solved ? "Reopen" : "Resolved", icon: solved ? <RotateCcw size={16} /> : <Check size={16} />, onSelect: () => resolve(!solved) },
+        { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
+      ]}>
+      <div className="card goal-summary">
+        <div className="panel-title">
+          <h2>{issue.title}</h2>
+          <span className={`badge badge-lg ${solved ? "badge-done" : "badge-warn"}`} style={{ cursor: "default" }}>{solved ? "Resolved" : "Open"}</span>
+        </div>
+        <div className="goal-meta">
+          <span>{owner ? fullName(owner) : "No owner"}</span>
+          {issue.priority && <span className="badge">Top 3 · #{issue.priority}</span>}
+          {issue.source_type && SOURCE[issue.source_type] && <span>{SOURCE[issue.source_type]}</span>}
+          <span>Added {fmtDay(issue.created_at)}</span>
+          {solved && issue.solved_at && <span>Resolved {fmtDay(issue.solved_at)}</span>}
+        </div>
+        {issue.description && <p className="goal-desc">{issue.description}</p>}
       </div>
-      <div style={{ marginTop: 20 }}><Attachments itemType="issue" itemId={issue.id} /></div>
-      <div style={{ marginTop: 20 }}><Comments itemType="issue" itemId={issue.id} /></div>
-    </Sheet>
+      {(error || notice) && <p className={error ? "error" : "notice"}>{error || notice}</p>}
+      {todo ? (
+        <div className="card card-pad stack" style={{ gap: 10 }}>
+          <strong style={{ color: "var(--color-fg)" }}>New To-Do from this Issue</strong>
+          <div className="grid-2">
+            <label className="field"><span>For</span><OwnerSelect members={members} value={todo.owner} onChange={(v) => setTodo({ ...todo, owner: v })} /></label>
+            <label className="field"><span>Due</span><input className="input" type="date" value={todo.due} onChange={(e) => setTodo({ ...todo, due: e.target.value || todo.due })} /></label>
+          </div>
+          <div className="row"><button className="btn btn-primary btn-sm" disabled={busy} onClick={makeTodo}>Add To-Do</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setTodo(null)}>Cancel</button></div>
+        </div>
+      ) : (
+        <div className="row" style={{ gap: 8 }}>
+          {!solved && <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => resolve(true)}><Check size={16} />Resolved</button>}
+          {solved && <button className="btn btn-sm" disabled={busy} onClick={() => resolve(false)}><RotateCcw size={16} />Reopen</button>}
+          <button className="btn btn-sm" onClick={startTodo}><SquareCheck size={16} />Make a To-Do</button>
+        </div>
+      )}
+    </ItemPanel>
   );
 }

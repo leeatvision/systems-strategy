@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Bell, ChartLine, CircleAlert, ClipboardCheck, Compass, Home, ListOrdered, LogOut, Megaphone, Menu, Mountain, Network, Search, SquareCheck, Trash2, User, Users, Video } from "lucide-react";
+import { BarChart3, Bell, ChartLine, CircleAlert, ClipboardCheck, Compass, Home, ListOrdered, LogOut, Megaphone, Menu, Mountain, Network, Search, SquareCheck, Trash2, User, Users, Video, AlarmClock } from "lucide-react";
 import { useUnreadCount } from "../lib/notifications";
 import { OfflineBanner } from "./OfflineBanner";
 import { useMe, useSession } from "../lib/session";
@@ -22,6 +22,7 @@ const more = [
   { to: "/processes", label: "Processes", icon: ListOrdered },
   { to: "/checkups", label: "Checkups", icon: ClipboardCheck },
   { to: "/insights", label: "Insights", icon: ChartLine },
+  { to: "/reminders", label: "Reminders", icon: AlarmClock },
 ];
 
 export function Shell() {

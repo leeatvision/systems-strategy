@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, ListChecks, Lock, LockOpe
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers } from "../lib/data";
-import { Chips, Empty, Section } from "../components/ui";
+import { Chips, Empty, Menu, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
 type Kind = string;
@@ -112,7 +112,7 @@ export function Checkups() {
       <div className="row">
         <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Checkup Types and Standard Questions</button>
       </div>
-      <p className="small muted">A quick, honest read on how the organisation, culture or anything else is doing. Each type starts from its Standard Questions, so results compare from one checkup to the next; Other is for one-off checkups with your own questions. Run one every quarter or so and watch the trend.</p>
+      <p className="small muted">A quick, honest read on how things are going. Each type asks its Standard Questions every time so results compare; Other is for one-off checkups.</p>
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <Empty>No checkups yet.</Empty> : <>
         {open.length > 0 && <Section title="Open" count={open.length}><ul className="card list">{open.map(row)}</ul></Section>}
         {closed.length > 0 && <Section title="Closed" count={closed.length}><ul className="card list">{closed.map(row)}</ul></Section>}
@@ -260,20 +260,35 @@ export function CheckupDetail() {
 
   return (
     <div className="stack" style={{ maxWidth: 760 }}>
-      <Link to="/checkups" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Checkups</Link>
-      <div className="page-head" style={{ marginBottom: 0 }}>
-        <h1>{c.title}</h1>
-        <span className={`badge ${c.status === "open" ? "badge-green" : ""}`}>{c.status === "open" ? "Open" : "Closed"}</span>
-      </div>
-      <p className="small muted">{nameOf(c.kind)}{c.anonymous ? " · anonymous" : " · names shown"} · {responders?.responders ?? 0} {responders?.responders === 1 ? "person has" : "people have"} answered
-        {responders?.member_ids?.length ? ` (${responders.member_ids.map((m) => byId(m)?.first_name).filter(Boolean).join(", ")})` : ""}</p>
-      <div className="row wrap">
-        <Chips value={tab} onChange={setTab} options={[{ value: "answer", label: c.status === "open" ? `My answers ${done}/${questions.length}` : "My answers" }, { value: "results", label: "Results" }]} />
+      <div className="row">
+        <Link to="/checkups" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Checkups</Link>
         <span className="spacer" />
-        {c.status === "open"
-          ? <button className="btn btn-sm" onClick={() => confirm("Close this checkup? Nobody can change their answers after it's closed.") && setStatus("closed")}><Lock size={16} />Close</button>
-          : <button className="btn btn-sm btn-ghost" onClick={() => setStatus("open")}><LockOpen size={16} />Reopen</button>}
+        <Menu items={[
+          c.status === "open"
+            ? { label: "Close checkup", icon: <Lock size={16} />, onSelect: () => { if (confirm("Close this checkup? Nobody can change their answers after it's closed.")) setStatus("closed"); } }
+            : { label: "Reopen checkup", icon: <LockOpen size={16} />, onSelect: () => setStatus("open") },
+          { label: "Move to recycle bin", icon: <Trash2 size={16} />, danger: true, onSelect: async () => {
+            if (!confirm("Move this checkup to the recycle bin?")) return;
+            await supabase.from("ss_checkups").update({ deleted_at: new Date().toISOString() }).eq("id", c.id);
+            navigate("/checkups");
+          } },
+        ]} />
       </div>
+      <div className="card card-pad goal-summary">
+        <div className="row" style={{ alignItems: "flex-start" }}>
+          <h1 className="goal-title">{c.title}</h1>
+          <span className={`badge badge-lg ${c.status === "open" ? "badge-green" : "badge-done"}`} style={{ cursor: "default" }}>{c.status === "open" ? "Open" : "Closed"}</span>
+        </div>
+        <div className="goal-meta">
+          <span>{nameOf(c.kind)}</span>
+          <span>{c.anonymous ? "Anonymous" : "Names shown"}</span>
+          <span>{responders?.responders ?? 0} {responders?.responders === 1 ? "person has" : "people have"} answered
+            {!c.anonymous && responders?.member_ids?.length ? ` (${responders.member_ids.map((m) => byId(m)?.first_name).filter(Boolean).join(", ")})` : ""}</span>
+        </div>
+        {total !== null && <p className="goal-finish"><span className="muted">Overall</span> <strong>{total}%</strong>
+          {previous?.overall != null && <span className="muted"> · {total - previous.overall >= 0 ? "+" : ""}{total - previous.overall} vs {previous.title}</span>}</p>}
+      </div>
+      <Chips value={tab} onChange={setTab} options={[{ value: "answer", label: c.status === "open" ? `My Answers ${done}/${questions.length}` : "My Answers" }, { value: "results", label: "Results" }]} />
       {error && <p className="error">{error}</p>}
 
       {tab === "answer" ? (
@@ -354,14 +369,6 @@ export function CheckupDetail() {
           <p className="small muted">Low scores are a prompt for a conversation: drop the biggest one into Issues.</p>
         </div>
       )}
-      <div className="row">
-        <span className="spacer" />
-        <button className="btn btn-sm btn-danger" onClick={async () => {
-          if (!confirm("Move this checkup to the recycle bin?")) return;
-          await supabase.from("ss_checkups").update({ deleted_at: new Date().toISOString() }).eq("id", c.id);
-          navigate("/checkups");
-        }}><Trash2 size={16} />Recycle bin</button>
-      </div>
     </div>
   );
 }

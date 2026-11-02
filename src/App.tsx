@@ -27,6 +27,7 @@ import { ChartScreen } from "./screens/OrgChart";
 import { Processes, ProcessDetail } from "./screens/Processes";
 import { Checkups, CheckupDetail } from "./screens/Checkups";
 import { NotificationSettings } from "./screens/NotificationSettings";
+import { Reminders } from "./screens/Reminders";
 
 function Gate() {
   const { state } = useSession();
@@ -51,6 +52,7 @@ function Gate() {
           <Route path="bin" element={<RecycleBin />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="settings/notifications" element={<NotificationSettings />} />
+          <Route path="reminders" element={<Reminders />} />
           <Route path="search" element={<Search />} />
           <Route path="meetings" element={<Meetings />} />
           <Route path="meetings/:id" element={<MeetingDetail />} />

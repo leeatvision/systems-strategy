@@ -8,11 +8,9 @@ import {
   REPEAT, addDays, endOfWeek, fmtDay, parsePlainDate, today, useMeetings, useMembers, useOpenParam,
   type ChecklistItem, type RepeatRule, type Todo,
 } from "../lib/data";
-import { Comments } from "../components/Comments";
 import { DATE_OPTIONS, FilterButton, FilterPanel, MineToggle, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
-import { Attachments } from "../components/Attachments";
 import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } from "../components/ui";
-import { Sheet } from "../components/Sheet";
+import { ItemPanel } from "../components/ItemPanel";
 
 export function Todos() {
   const { me, company } = useMe();
@@ -150,7 +148,7 @@ export function Todos() {
         )}
       </>}
 
-      {editing && <TodoSheet todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <TodoSheet todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
@@ -205,85 +203,116 @@ function QuickAdd({ companyId, meId, members, meetingId, onAdded }: {
   );
 }
 
-export function TodoSheet({ todo, onClose, onSaved }: { todo: Todo; onClose: () => void; onSaved: () => void }) {
+export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: Todo; onClose: () => void; onSaved: () => void; onChanged?: () => void }) {
   const { me, company } = useMe();
-  const { active } = useMembers();
-  const [form, setForm] = useState({
+  const { active, byId } = useMembers();
+  const [todo, setTodo] = useState(start);
+  const blank = () => ({
     title: todo.title, description: todo.description ?? "", owner_member_id: todo.owner_member_id,
     due_date: todo.due_date, priority: todo.priority, is_personal: todo.is_personal,
     repeat_rule: (todo.repeat_rule ?? "") as RepeatRule | "",
   });
+  const [form, setForm] = useState(blank);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const run = async (p: PromiseLike<{ error: unknown }>) => {
+  const run = async (p: PromiseLike<{ error: unknown }>, after: () => void) => {
     setBusy(true);
     const { error } = await p;
     setBusy(false);
-    if (error) setError(friendlyError(error)); else onSaved();
+    if (error) setError(friendlyError(error)); else { setError(""); after(); }
   };
-
   const save = (e: FormEvent) => {
     e.preventDefault();
-    run(supabase.from("ss_todos").update({
+    const row = {
       ...form, title: form.title.trim(), description: form.description.trim() || null,
-      is_personal: form.owner_member_id === me.id && form.is_personal,
-      repeat_rule: form.repeat_rule || null,
-    }).eq("id", todo.id));
+      is_personal: form.owner_member_id === me.id && form.is_personal, repeat_rule: form.repeat_rule || null,
+    };
+    run(supabase.from("ss_todos").update(row).eq("id", todo.id), () => { setTodo({ ...todo, ...row }); setEditing(false); onChanged?.(); });
+  };
+  const toggleDone = () => {
+    const done = todo.status !== "done";
+    const change = { status: done ? "done" : "open", completed_at: done ? new Date().toISOString() : null } as Partial<Todo>;
+    setTodo({ ...todo, ...change });
+    run(supabase.from("ss_todos").update(change).eq("id", todo.id), () => onChanged?.());
   };
   const dropToIssues = () => run(supabase.from("ss_issues").insert({
     company_id: company.id, meeting_id: todo.meeting_id, owner_member_id: todo.owner_member_id, title: todo.title,
     description: todo.description, source_type: "todo", source_id: todo.id, created_by: me.id,
-  }));
-  const toBin = () => run(supabase.from("ss_todos").update({ deleted_at: new Date().toISOString() }).eq("id", todo.id));
+  }), () => setNotice("Added to Issues."));
+  const toBin = () => confirm("Move this To-Do to the recycle bin?")
+    && run(supabase.from("ss_todos").update({ deleted_at: new Date().toISOString() }).eq("id", todo.id), onSaved);
+
+  const owner = byId(todo.owner_member_id);
+  const overdue = todo.status === "open" && todo.due_date < today();
+
+  const edit = (
+    <form className="stack" onSubmit={save}>
+      <label className="field"><span>Title</span>
+        <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+      </label>
+      <label className="field"><span>Notes</span>
+        <textarea className="input textarea" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      </label>
+      <div className="grid-2">
+        <label className="field"><span>Owner</span>
+          <OwnerSelect members={active} value={form.owner_member_id} onChange={(v) => v && setForm({ ...form, owner_member_id: v })} />
+        </label>
+        <label className="field"><span>Due</span>
+          <input className="input" type="date" required value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+        </label>
+        <label className="field"><span>Repeats</span>
+          <select className="select" value={form.repeat_rule} onChange={(e) => setForm({ ...form, repeat_rule: e.target.value as RepeatRule | "" })}>
+            <option value="">Doesn't repeat</option>
+            {(Object.keys(REPEAT) as RepeatRule[]).map((k) => <option key={k} value={k}>{REPEAT[k]}</option>)}
+          </select>
+        </label>
+        <label className="field"><span>Priority</span>
+          <select className="select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Todo["priority"] })}>
+            <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
+          </select>
+        </label>
+      </div>
+      {form.owner_member_id === me.id && (
+        <label className="row small" style={{ gap: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={form.is_personal} onChange={(e) => setForm({ ...form, is_personal: e.target.checked })} />
+          Personal: only you can see it
+        </label>
+      )}
+      {form.repeat_rule && <p className="small muted">The next one is created when this one is ticked done.</p>}
+      {error && <p className="error">{error}</p>}
+      <div className="row">
+        <button className="btn btn-primary" disabled={busy}>Save</button>
+        <button type="button" className="btn btn-ghost" onClick={() => { setForm(blank()); setEditing(false); setError(""); }}>Cancel</button>
+      </div>
+    </form>
+  );
 
   return (
-    <Sheet title="To-Do" onClose={onClose}>
-      <form className="stack" onSubmit={save}>
-        <label className="field"><span>Title</span>
-          <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-        </label>
-        <label className="field"><span>Notes</span>
-          <textarea className="input textarea" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        </label>
-        <div className="grid-2">
-          <label className="field"><span>Owner</span>
-            <OwnerSelect members={active} value={form.owner_member_id} onChange={(v) => v && setForm({ ...form, owner_member_id: v })} />
-          </label>
-          <label className="field"><span>Due</span>
-            <input className="input" type="date" required value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-          </label>
-          <label className="field"><span>Repeats</span>
-            <select className="select" value={form.repeat_rule} onChange={(e) => setForm({ ...form, repeat_rule: e.target.value as RepeatRule | "" })}>
-              <option value="">Doesn't repeat</option>
-              {(Object.keys(REPEAT) as RepeatRule[]).map((k) => <option key={k} value={k}>{REPEAT[k]}</option>)}
-            </select>
-          </label>
-          <label className="field"><span>Priority</span>
-            <select className="select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Todo["priority"] })}>
-              <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
-            </select>
-          </label>
+    <ItemPanel heading="To-Do" itemType="todo" itemId={todo.id} onClose={onClose} editing={editing} onEdit={() => { setForm(blank()); setEditing(true); }} edit={edit}
+      actions={[
+        { label: "Drop into Issues", icon: <CircleAlert size={16} />, onSelect: dropToIssues },
+        { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
+      ]}>
+      <div className="card goal-summary">
+        <div className="panel-title">
+          <Tick done={todo.status === "done"} label={todo.status === "done" ? "Mark not done" : "Mark done"} onToggle={toggleDone} />
+          <h2 className={todo.status === "done" ? "struck" : ""}>{todo.title}</h2>
         </div>
-        {form.owner_member_id === me.id && (
-          <label className="row small" style={{ gap: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={form.is_personal} onChange={(e) => setForm({ ...form, is_personal: e.target.checked })} />
-            Personal: only you can see it
-          </label>
-        )}
-        {form.repeat_rule && <p className="small muted">The next one is created when this one is ticked done.</p>}
-        {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary" disabled={busy}>Save</button>
-        <Checklist todo={todo} />
-        <div className="row wrap">
-          <button type="button" className="btn btn-sm" disabled={busy} onClick={dropToIssues}><CircleAlert size={16} />Drop into Issues</button>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={toBin}><Trash2 size={16} />Recycle bin</button>
+        <div className="goal-meta">
+          <span>{owner ? fullName(owner) : "No owner"}</span>
+          <span className={overdue ? "overdue" : ""}>Due {fmtDay(todo.due_date)}{overdue ? " · overdue" : ""}</span>
+          {todo.repeat_rule && <span className="row" style={{ gap: 3 }}><Repeat size={13} />{REPEAT[todo.repeat_rule]}</span>}
+          {todo.priority === "high" && <span className="badge badge-danger">High</span>}
+          {todo.is_personal && <PersonalBadge />}
         </div>
-      </form>
-      <div style={{ marginTop: 20 }}><Attachments itemType="todo" itemId={todo.id} /></div>
-      <div style={{ marginTop: 20 }}><Comments itemType="todo" itemId={todo.id} /></div>
-    </Sheet>
+        {todo.description && <p className="goal-desc">{todo.description}</p>}
+      </div>
+      {(error || notice) && <p className={error ? "error" : "notice"}>{error || notice}</p>}
+      <div className="card card-pad"><Checklist todo={todo} /></div>
+    </ItemPanel>
   );
 }
 
