@@ -668,3 +668,24 @@ ol.process-list { list-style: none; margin: 0; padding: 0; }
 .select-sm { min-height: 34px; font-size: 13px; padding: 0 8px; }
 .plan-field > span.plan-text { font-size: 14px; font-weight: 400; color: var(--color-fg); }
 .plan-field > span.plan-text.muted { color: var(--color-fg-muted); }
+
+/* Key Numbers */
+.mini-spark { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+.mini-spark > span { width: 4px; border-radius: 1px; background: var(--gray-300); }
+.kn-latest { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+.enter-list > li { padding-left: 0; padding-right: 0; }
+.enter-input { width: 112px; flex: none; text-align: right; }
+.trend { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.trend-plot { position: relative; height: 160px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--color-border); padding-top: 18px; }
+.trend-col { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+.trend-bar { width: 100%; max-width: 28px; background: var(--gray-300); border-radius: 4px 4px 0 0; }
+.trend-empty { background: var(--color-border); }
+.trend-val { position: absolute; top: -18px; font-size: 12px; font-weight: 600; color: var(--color-fg); white-space: nowrap; }
+.trend-goal { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--color-fg-muted); z-index: 1; pointer-events: none; }
+.trend-goal > span { position: absolute; right: 0; top: -18px; font-size: 11px; color: var(--color-fg-secondary); background: var(--color-bg); padding: 0 4px; }
+.trend-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-fg-muted); }
+.trend-key { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.key-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 6px; }
+.key-line { display: inline-block; width: 16px; border-top: 2px dashed var(--color-fg-muted); margin-left: 6px; }
+.trend-bar.sc-on-bar, .mini-spark > .sc-on-bar { background: var(--color-brand); }
+.trend-bar.sc-off-bar, .mini-spark > .sc-off-bar { background: var(--color-danger); }

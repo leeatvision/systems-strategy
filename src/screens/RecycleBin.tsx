@@ -10,7 +10,7 @@ const TABLES = [
   { table: "ss_todos", label: "To-Do" },
   { table: "ss_issues", label: "Issue" },
   { table: "ss_headlines", label: "Headline" },
-  { table: "ss_measurables", label: "Measurable" },
+  { table: "ss_measurables", label: "Key Number" },
   { table: "ss_meetings", label: "Meeting" },
   { table: "ss_processes", label: "Process" },
   { table: "ss_checkups", label: "Checkup", owner: "created_by" },

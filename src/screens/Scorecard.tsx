@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Download, Plus, Settings, Trash2 } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, Download, Grid3x3, List, Pencil, Plus, Printer, Settings, SquarePen, Trash2 } from "lucide-react";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
-import { today, useMembers, useOpenParam } from "../lib/data";
+import { fmtDateTime, today, useMembers, useOpenParam } from "../lib/data";
 import { downloadCsv } from "../lib/csv";
 import {
   COMPARISON_LABEL, PERIOD_LABEL, UNIT_LABEL, fmtValue, goalText, onTrack, parseNumber, periodLabel, recentPeriods,
   type Comparison, type MValue, type Measurable, type Period, type Scorecard as Card, type Unit,
 } from "../lib/scorecard";
-import { Avatar, Empty, OwnerSelect, Section } from "../components/ui";
+import { Avatar, Empty, Fold, Menu, OwnerSelect, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
+import { History } from "../components/History";
+import { MineToggle, useFilters } from "../components/Filters";
 
 const SECTION_ORDER: Period[] = ["week", "month", "quarter", "year"];
 const COUNT: Record<Period, number> = { week: 13, month: 6, quarter: 4, year: 3 };
+/** How many periods a number's own page charts. */
+const TREND: Record<Period, number> = { week: 13, month: 12, quarter: 8, year: 5 };
 
 function useWide() {
   const q = "(min-width: 760px)";
@@ -26,15 +31,21 @@ function useWide() {
   return wide;
 }
 
-export function Scorecard() {
+const periodOf = (m: Measurable, card: Card): Period => m.period_override ?? card.period;
+/** The most recent period with a number in it, among the last few. */
+function latest(m: Measurable, card: Card, valueFor: (m: Measurable, p: string) => MValue | undefined) {
+  const ps = recentPeriods(periodOf(m, card), TREND[periodOf(m, card)]).reverse();
+  for (const p of ps) { const v = valueFor(m, p); if (v && v.value !== null) return { p, v }; }
+  return null;
+}
+const statusOf = (v: MValue | undefined) => onTrack(v?.value ?? null, v?.goal_value ?? null, v?.goal_value_upper ?? null, v?.comparison ?? null);
+
+/** Key Numbers, their numbers and how to save one; shared by the list and each number's page. */
+function useKeyNumbers() {
   const { company } = useMe();
-  const { byId } = useMembers();
-  const wide = useWide();
   const [card, setCard] = useState<Card | null | undefined>(undefined);
   const [measurables, setMeasurables] = useState<Measurable[]>([]);
   const [values, setValues] = useState<MValue[]>([]);
-  const [editing, setEditing] = useState<Measurable | "new" | null>(null);
-  const [settings, setSettings] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -47,18 +58,18 @@ export function Scorecard() {
     const list = (ms ?? []) as Measurable[];
     setMeasurables(list);
     if (!list.length) { setValues([]); return; }
-    const earliest = recentPeriods("year", COUNT.year)[0] < recentPeriods("week", Math.max(sc.periods_to_show, 13))[0]
-      ? recentPeriods("year", COUNT.year)[0] : recentPeriods("week", Math.max(sc.periods_to_show, 13))[0];
+    const starts = [recentPeriods("week", Math.max(sc.periods_to_show, TREND.week))[0], recentPeriods("month", TREND.month)[0],
+      recentPeriods("quarter", TREND.quarter)[0], recentPeriods("year", TREND.year)[0]];
+    const earliest = starts.sort()[0];
     const { data: vs } = await supabase.from("ss_measurable_values").select("id, measurable_id, period_start, value, goal_value, goal_value_upper, comparison, note")
       .in("measurable_id", list.map((m) => m.id)).gte("period_start", earliest);
     setValues((vs ?? []) as MValue[]);
   }, []);
   useEffect(() => { load(); }, [load]);
-  useOpenParam(measurables.length ? measurables : null, "ss_measurables", setEditing);
 
-  const valueFor = (m: Measurable, p: string) => values.find((v) => v.measurable_id === m.id && v.period_start === p);
+  const valueFor = useCallback((m: Measurable, p: string) => values.find((v) => v.measurable_id === m.id && v.period_start === p), [values]);
 
-  /** Save one cell: blank removes the number, otherwise insert or update it. */
+  /** Save one number: blank removes it, otherwise insert or update it. */
   const save = async (m: Measurable, period: string, text: string) => {
     const n = parseNumber(text);
     const existing = valueFor(m, period);
@@ -80,16 +91,37 @@ export function Scorecard() {
     }
     load();
   };
+  return { card, measurables, values, valueFor, save, load, error, setError };
+}
+
+export function Scorecard() {
+  const { me } = useMe();
+  const { byId } = useMembers();
+  const navigate = useNavigate();
+  const wide = useWide();
+  const { card, measurables, values, valueFor, save, load, error } = useKeyNumbers();
+  const filters = useFilters("keynumbers", { owner: "all" });
+  const [editing, setEditing] = useState<"new" | null>(null);
+  const [settings, setSettings] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [view, setViewState] = useState<"list" | "grid">(() => {
+    try { return (localStorage.getItem("ss.keyNumbersView") as "list" | "grid") || (wide ? "grid" : "list"); } catch { return "list"; }
+  });
+  const setView = (v: "list" | "grid") => { setViewState(v); try { localStorage.setItem("ss.keyNumbersView", v); } catch { /* private mode */ } };
+  useOpenParam(measurables.length ? measurables : null, "ss_measurables", (m) => navigate(`/key-numbers/${m.id}`));
 
   if (card === undefined) return <p className="muted">Loading…</p>;
-  if (card === null) return <Empty>There are no Key Numbers yet. It's created with the first meeting during set-up.</Empty>;
+  if (card === null) return <Empty>There are no Key Numbers yet. They're set up with the first meeting.</Empty>;
 
+  const mine = measurables.filter((m) => filters.values.owner !== "me" || m.owner_member_id === me.id);
   const sections = SECTION_ORDER.map((p) => {
-    const list = measurables.filter((m) => (m.period_override ?? card.period) === p);
+    const list = mine.filter((m) => periodOf(m, card) === p);
     let periods = recentPeriods(p, p === card.period ? card.periods_to_show : COUNT[p]);
     if (card.newest_first) periods = [...periods].reverse();
     return { period: p, list, periods };
   }).filter((s) => s.list.length);
+  // Numbers still missing for their last full period (last week, last month…).
+  const missing = mine.filter((m) => { const p = recentPeriods(periodOf(m, card), 2)[0]; return !valueFor(m, p); });
 
   const exportCsv = () => {
     const rows: (string | number | null)[][] = [];
@@ -98,38 +130,278 @@ export function Scorecard() {
       if (v?.value === null || v === undefined) continue;
       const o = byId(m.owner_member_id);
       rows.push([m.title, o ? fullName(o) : "", PERIOD_LABEL[s.period], p, v.value, goalText(m),
-        onTrack(v.value, v.goal_value, v.goal_value_upper, v.comparison) === false ? "off" : "on"]);
+        statusOf(v) === false ? "off" : "on"]);
     }
     downloadCsv(`key-numbers-${today()}`, ["Number", "Owner", "Period", "Period start", "Value", "Goal", "On track"], rows);
   };
 
+  const row = (m: Measurable) => {
+    const last = latest(m, card, valueFor);
+    const ok = statusOf(last?.v);
+    const per = periodOf(m, card);
+    const spark = recentPeriods(per, 8).map((p) => valueFor(m, p));
+    const max = Math.max(...spark.map((v) => Math.abs(v?.value ?? 0)), Math.abs(m.goal_value ?? 0), 1);
+    return (
+      <li key={m.id} className="clickable" onClick={() => navigate(`/key-numbers/${m.id}`)}>
+        <Avatar m={byId(m.owner_member_id)} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="item-title">{m.title}</div>
+          <div className="row small muted" style={{ gap: 8, flexWrap: "wrap" }}>
+            <span>Goal {goalText(m)}</span>
+            <span className="mini-spark" aria-hidden>{spark.map((v, i) => (
+              <span key={i} className={statusOf(v) === true ? "sc-on-bar" : statusOf(v) === false ? "sc-off-bar" : ""}
+                style={{ height: v?.value == null ? 2 : Math.max(3, (Math.abs(v.value) / max) * 16) }} />
+            ))}</span>
+          </div>
+        </div>
+        <div className="kn-latest">
+          <span className={`badge ${ok === true ? "badge-green" : ok === false ? "badge-danger" : ""}`}>{last ? fmtValue(last.v.value, m.unit, m.decimals) : "No number"}</span>
+          {last && <span className="small muted">{periodLabel(per, last.p)}</span>}
+        </div>
+      </li>
+    );
+  };
+
   return (
     <div className="stack">
-      <div className="page-head">
+      <div className="page-head goals-head">
         <h1>{card.title}</h1>
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost" onClick={exportCsv} aria-label="Export to CSV" title="Export to CSV"><Download size={18} /></button>
-        <button className="btn btn-sm btn-ghost" onClick={() => setSettings(true)} aria-label="Key Numbers settings" title="Settings"><Settings size={18} /></button>
-        <button className="btn btn-primary btn-sm" onClick={() => setEditing("new")}><Plus size={16} />Add</button>
+        <button className="btn btn-primary btn-sm desktop-only" onClick={() => setEditing("new")}><Plus size={16} />New Number</button>
       </div>
+      <h2 className="print-only">{card.title}</h2>
+      <div className="toolbar no-print">
+        <span className="seg" role="group" aria-label="View">
+          <button type="button" className={view === "list" ? "on" : ""} aria-pressed={view === "list"} aria-label="List" title="List" onClick={() => setView("list")}><List size={18} /></button>
+          <button type="button" className={view === "grid" ? "on" : ""} aria-pressed={view === "grid"} aria-label="Grid" title="Grid" onClick={() => setView("grid")}><Grid3x3 size={18} /></button>
+        </span>
+        <span className="spacer" />
+        <MineToggle value={filters.values.owner} onChange={(v) => filters.set("owner", v)} />
+        <Menu items={[
+          { label: "Enter Numbers", icon: <SquarePen size={16} />, onSelect: () => setEntering(true), hidden: !mine.length },
+          { label: "Settings", icon: <Settings size={16} />, onSelect: () => setSettings(true) },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
+        ]} />
+      </div>
+      {missing.length > 0 && (
+        <div className="close-banner no-print">
+          <span>{missing.length} number{missing.length === 1 ? "" : "s"} still to enter for last {missing.every((m) => periodOf(m, card) === "week") ? "week" : "period"}</span>
+          <button type="button" className="link-btn" onClick={() => setEntering(true)}>Enter</button>
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
       {measurables.length === 0 && <Empty>No Key Numbers yet. Add the handful of numbers that tell you the business is on track.</Empty>}
+      {measurables.length > 0 && mine.length === 0 && <Empty>None of the Key Numbers are yours.</Empty>}
 
       {sections.map((s) => (
         <Section key={s.period} title={PERIOD_LABEL[s.period]} count={s.list.length}>
-          {wide
-            ? <Grid card={card} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onEdit={setEditing} />
-            : <div className="stack" style={{ gap: 8 }}>{s.list.map((m) => (
-                <PhoneCard key={m.id} m={m} period={s.period} valueFor={valueFor} owner={byId(m.owner_member_id)} onSave={save} onEdit={() => setEditing(m)} />
-              ))}</div>}
+          {view === "grid"
+            ? <Grid card={card} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onOpen={(m) => navigate(`/key-numbers/${m.id}`)} />
+            : <ul className="card list">{s.list.map(row)}</ul>}
         </Section>
       ))}
-      {wide && measurables.length > 0 && <p className="small muted">Click a cell to type a number; press Enter or Tab to save. Clear it to remove the number.</p>}
+      {view === "grid" && mine.length > 0 && <p className="small muted">Tap a cell to type a number; press Enter or Tab to save. Clear it to remove the number.</p>}
+      <div className="fab-space" aria-hidden />
+      <button type="button" className="fab no-print" onClick={() => setEditing("new")} aria-label="New Number"><Plus size={20} />New Number</button>
 
-      {editing && <MeasurableSheet m={editing === "new" ? null : editing} card={card} all={measurables}
-        onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <MeasurableSheet m={null} card={card} all={measurables} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); navigate(`/key-numbers/${id}`); }} />}
       {settings && <SettingsSheet card={card} onClose={() => setSettings(false)} onSaved={() => { setSettings(false); load(); }} />}
+      {entering && <EnterSheet card={card} list={mine} valueFor={valueFor} onSave={save} onClose={() => setEntering(false)} />}
     </div>
+  );
+}
+
+/** Quick entry: every number's last full period (and the current one) in one sheet. */
+function EnterSheet({ card, list, valueFor, onSave, onClose }: {
+  card: Card; list: Measurable[]; valueFor: (m: Measurable, p: string) => MValue | undefined;
+  onSave: (m: Measurable, p: string, t: string) => Promise<void>; onClose: () => void;
+}) {
+  const [which, setWhich] = useState<0 | 1>(0);
+  return (
+    <Sheet title="Enter Numbers" onClose={onClose}>
+      <div className="stack">
+        <div className="seg seg-text" role="group" aria-label="Which period" style={{ alignSelf: "flex-start" }}>
+          <button type="button" className={which === 0 ? "on" : ""} onClick={() => setWhich(0)}>Last period</button>
+          <button type="button" className={which === 1 ? "on" : ""} onClick={() => setWhich(1)}>This period</button>
+        </div>
+        <ul className="list enter-list">
+          {list.map((m) => {
+            const per = periodOf(m, card);
+            const p = recentPeriods(per, 2)[which];
+            const v = valueFor(m, p);
+            const ok = statusOf(v);
+            return (
+              <li key={`${m.id}-${p}`}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="item-title">{m.title}</div>
+                  <div className="small muted">{per === "week" ? `Week of ${periodLabel(per, p)}` : periodLabel(per, p)} · goal {goalText(m)}</div>
+                </div>
+                <input className={`input enter-input${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`} inputMode="decimal" aria-label={`${m.title}, ${periodLabel(per, p)}`}
+                  defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => onSave(m, p, e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+              </li>
+            );
+          })}
+        </ul>
+        <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+      </div>
+    </Sheet>
+  );
+}
+
+type NumberFold = "all" | "history";
+
+/** One Key Number: summary, its trend, quick entry, then every number and the change history folded away. */
+export function KeyNumberDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { me, company } = useMe();
+  const { byId, members } = useMembers();
+  const { card, measurables, valueFor, save, load, error, setError } = useKeyNumbers();
+  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState<NumberFold | null>(null);
+  const [msg, setMsg] = useState("");
+  if (card === undefined) return <p className="muted">Loading…</p>;
+  const m = measurables.find((x) => x.id === id);
+  if (!card || !m) return measurables.length || card === null ? <p className="error">That number wasn't found.</p> : <p className="muted">Loading…</p>;
+
+  const per = periodOf(m, card);
+  const periods = recentPeriods(per, TREND[per]);
+  const last = latest(m, card, valueFor);
+  const ok = statusOf(last?.v);
+  const owner = byId(m.owner_member_id);
+  const [prevP, curP] = recentPeriods(per, 2);
+  const toggle = (f: NumberFold) => setOpen(open === f ? null : f);
+
+  const move = async (by: number) => {
+    const i = measurables.findIndex((x) => x.id === m.id);
+    if (!measurables[i + by]) return;
+    const order = [...measurables]; [order[i], order[i + by]] = [order[i + by], order[i]];
+    await Promise.all(order.map((x, n) => x.sort_order === n ? null : supabase.from("ss_measurables").update({ sort_order: n }).eq("id", x.id)));
+    load();
+  };
+  const toBin = async () => {
+    if (!confirm("Move this number to the recycle bin? Its history is kept.")) return;
+    const { error } = await supabase.from("ss_measurables").update({ deleted_at: new Date().toISOString() }).eq("id", m.id);
+    if (error) setError(friendlyError(error)); else navigate("/key-numbers");
+  };
+  const toIssues = async () => {
+    const { error } = await supabase.from("ss_issues").insert({ company_id: company.id, owner_member_id: m.owner_member_id, title: m.title,
+      source_type: "measurable", source_id: m.id, created_by: me.id });
+    if (error) setError(friendlyError(error)); else setMsg("Added to Issues.");
+  };
+  const entry = (p: string, label: string) => {
+    const v = valueFor(m, p);
+    const s = statusOf(v);
+    return (
+      <label className="field" style={{ flex: 1, minWidth: 0 }}><span className="small">{label} <span className="muted">· {periodLabel(per, p)}</span></span>
+        <input key={`${p}-${v?.value ?? ""}`} className={`input${s === true ? " sc-on" : s === false ? " sc-off" : ""}`} inputMode="decimal"
+          defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => save(m, p, e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+      </label>
+    );
+  };
+  const word = per === "week" ? "week" : per;
+
+  return (
+    <div className="stack goal-page" style={{ maxWidth: 760 }}>
+      <div className="row">
+        <Link to="/key-numbers" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Key Numbers</Link>
+        <span className="spacer" />
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
+        <Menu items={[
+          { label: "Drop into Issues", icon: <CircleAlert size={16} />, onSelect: toIssues },
+          { label: "Move up the list", icon: <ArrowUp size={16} />, onSelect: () => move(-1), hidden: measurables[0]?.id === m.id },
+          { label: "Move down the list", icon: <ArrowDown size={16} />, onSelect: () => move(1), hidden: measurables.at(-1)?.id === m.id },
+          { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
+        ]} />
+      </div>
+
+      <div className="card card-pad goal-summary">
+        <div className="row" style={{ alignItems: "flex-start" }}>
+          <h1 className="goal-title">{m.title}</h1>
+          <span className={`badge badge-lg ${ok === true ? "badge-green" : ok === false ? "badge-danger" : ""}`} style={{ cursor: "default" }}>
+            {ok === true ? "On track" : ok === false ? "Off track" : "No number yet"}</span>
+        </div>
+        <div className="goal-meta">
+          <span>{owner ? fullName(owner) : "No owner"}</span>
+          <span>{PERIOD_LABEL[per]}</span>
+          <span>Goal {goalText(m)}</span>
+        </div>
+        {last && <p className="goal-finish"><span className="muted">Latest</span> <strong>{fmtValue(last.v.value, m.unit, m.decimals)}</strong> <span className="muted">· {periodLabel(per, last.p)}</span></p>}
+        {m.description && <p className="goal-desc">{m.description}</p>}
+      </div>
+      {(error || msg) && <p className={error ? "error" : "notice"}>{error || msg}</p>}
+
+      <section className="stack" style={{ gap: 8 }}>
+        <h2 className="steps-head">Trend<span className="count">last {periods.length} {word}s</span></h2>
+        <div className="card card-pad"><Trend m={m} per={per} periods={periods} valueFor={valueFor} /></div>
+      </section>
+
+      <section className="stack" style={{ gap: 8 }}>
+        <h2 className="steps-head">Enter</h2>
+        <div className="card card-pad row" style={{ alignItems: "flex-end" }}>
+          {entry(prevP, `Last ${word}`)}
+          {entry(curP, `This ${word}`)}
+        </div>
+      </section>
+
+      <div className="card folds">
+        <Fold title={`Every ${word}`} count={periods.filter((p) => valueFor(m, p)).length} open={open === "all"} onToggle={() => toggle("all")}>
+          <ul className="list enter-list">
+            {[...periods].reverse().map((p) => {
+              const v = valueFor(m, p);
+              const s = statusOf(v);
+              return (
+                <li key={p}>
+                  <span style={{ flex: 1 }}>{periodLabel(per, p)}{v && v.goal_value !== null && v.goal_value !== m.goal_value ? <span className="small muted"> · goal then {fmtValue(v.goal_value, m.unit, m.decimals)}</span> : null}</span>
+                  <input key={`${p}-${v?.value ?? ""}`} className={`input enter-input${s === true ? " sc-on" : s === false ? " sc-off" : ""}`} inputMode="decimal"
+                    aria-label={periodLabel(per, p)} defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => save(m, p, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                </li>
+              );
+            })}
+          </ul>
+        </Fold>
+        <Fold title="History" open={open === "history"} onToggle={() => toggle("history")}>
+          <History table="ss_measurables" rowId={m.id} childKey="measurable_id" members={members} />
+          {(m as Measurable & { created_at?: string }).created_at && <p className="small muted">Added {fmtDateTime((m as Measurable & { created_at: string }).created_at)}.</p>}
+        </Fold>
+      </div>
+
+      {editing && <MeasurableSheet m={m} card={card} all={measurables} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); }} />}
+    </div>
+  );
+}
+
+/** Bars for each period, green on track and red off, with the goal as a dashed line. */
+function Trend({ m, per, periods, valueFor }: { m: Measurable; per: Period; periods: string[]; valueFor: (m: Measurable, p: string) => MValue | undefined }) {
+  const vals = periods.map((p) => valueFor(m, p));
+  const nums = vals.map((v) => v?.value).filter((x): x is number => x !== null && x !== undefined);
+  const goals = [m.goal_value, m.comparison === "between" ? m.goal_value_upper : null].filter((x): x is number => x !== null);
+  const max = Math.max(...nums.map(Math.abs), ...goals.map(Math.abs), 1) * 1.1;
+  const lastIdx = vals.map((v) => v?.value != null).lastIndexOf(true);
+  if (!nums.length) return <p className="small muted" style={{ margin: 0 }}>No numbers yet. Enter one below and the trend builds from there.</p>;
+  return (
+    <figure className="trend" aria-label={`${m.title}, last ${periods.length} periods`}>
+      <div className="trend-plot">
+        {goals.map((g, i) => <span key={i} className="trend-goal" style={{ bottom: `${(Math.abs(g) / max) * 100}%` }}><span>Goal {fmtValue(g, m.unit, m.decimals)}</span></span>)}
+        {vals.map((v, i) => {
+          const s = statusOf(v);
+          const has = v?.value != null;
+          return (
+            <span key={periods[i]} className="trend-col" title={`${periodLabel(per, periods[i])}: ${has ? fmtValue(v!.value, m.unit, m.decimals) : "no number"}${s === true ? " (on track)" : s === false ? " (off track)" : ""}`}>
+              {i === lastIdx && <span className="trend-val">{fmtValue(v!.value, m.unit, m.decimals)}</span>}
+              <span className={`trend-bar${s === true ? " sc-on-bar" : s === false ? " sc-off-bar" : ""}${has ? "" : " trend-empty"}`}
+                style={{ height: has ? `${Math.max(2, (Math.abs(v!.value!) / max) * 100)}%` : 2 }} />
+            </span>
+          );
+        })}
+      </div>
+      <div className="trend-axis"><span>{periodLabel(per, periods[0])}</span><span>{periodLabel(per, periods.at(-1)!)}</span></div>
+      <figcaption className="trend-key small muted"><span className="key-dot sc-on-bar" />On track <span className="key-dot sc-off-bar" />Off track <span className="key-line" />Goal</figcaption>
+    </figure>
   );
 }
 
@@ -149,10 +421,10 @@ function Cell({ m, period, v, onSave }: { m: Measurable; period: string; v: MVal
   );
 }
 
-function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onEdit }: {
+function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onOpen }: {
   card: Card; period: Period; periods: string[]; list: Measurable[]; loaded: number;
   valueFor: (m: Measurable, p: string) => MValue | undefined; byId: ReturnType<typeof useMembers>["byId"];
-  onSave: (m: Measurable, p: string, t: string) => void; onEdit: (m: Measurable) => void;
+  onSave: (m: Measurable, p: string, t: string) => void; onOpen: (m: Measurable) => void;
 }) {
   // Open scrolled to the newest periods.
   const wrap = useRef<HTMLDivElement>(null);
@@ -180,7 +452,7 @@ function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onE
                   <div className="row" style={{ gap: 8 }}>
                     <Avatar m={byId(m.owner_member_id)} size={26} />
                     <div style={{ minWidth: 0 }}>
-                      <button className="link-btn sc-name" onClick={() => onEdit(m)}>{m.title}</button>
+                      <button className="link-btn sc-name" onClick={() => onOpen(m)}>{m.title}</button>
                       <div className="small muted">{goalText(m)}</div>
                     </div>
                   </div>
@@ -197,54 +469,9 @@ function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onE
   );
 }
 
-// ─── Phone card: one measurable, its trend, this period and last ────────────
-
-function PhoneCard({ m, period, valueFor, owner, onSave, onEdit }: {
-  m: Measurable; period: Period; valueFor: (m: Measurable, p: string) => MValue | undefined;
-  owner: ReturnType<ReturnType<typeof useMembers>["byId"]>; onSave: (m: Measurable, p: string, t: string) => void; onEdit: () => void;
-}) {
-  const periods = recentPeriods(period, 8);
-  const vals = periods.map((p) => valueFor(m, p));
-  const nums = vals.map((v) => v?.value).filter((x): x is number => x !== null && x !== undefined);
-  const max = Math.max(...nums.map(Math.abs), Math.abs(m.goal_value ?? 0), 1);
-  const [cur, prev] = [periods[7], periods[6]];
-  const entry = (p: string, label: string) => {
-    const v = valueFor(m, p);
-    const ok = onTrack(v?.value ?? null, v?.goal_value ?? null, v?.goal_value_upper ?? null, v?.comparison ?? null);
-    return (
-      <label className="field" style={{ flex: 1 }}><span className="small">{label} <span className="muted">· {periodLabel(period, p)}</span></span>
-        <input key={`${p}-${v?.value ?? ""}`} className={`input${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`} inputMode="decimal"
-          defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => onSave(m, p, e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-      </label>
-    );
-  };
-  return (
-    <div className="card card-pad stack" style={{ gap: 10 }}>
-      <div className="row" style={{ alignItems: "flex-start" }}>
-        <Avatar m={owner} />
-        <button className="link-btn sc-name" style={{ flex: 1, textAlign: "left" }} onClick={onEdit}>{m.title}</button>
-        <span className="small muted" style={{ whiteSpace: "nowrap" }}>{goalText(m)}</span>
-      </div>
-      <div className="spark" aria-label="Last 8 periods">
-        {vals.map((v, i) => {
-          const ok = onTrack(v?.value ?? null, v?.goal_value ?? null, v?.goal_value_upper ?? null, v?.comparison ?? null);
-          const h = v?.value === null || v?.value === undefined ? 0 : Math.max(6, (Math.abs(v.value) / max) * 40);
-          return <span key={i} className={`spark-bar${ok === true ? " sc-on-bar" : ok === false ? " sc-off-bar" : ""}`} style={{ height: h }}
-            title={`${periodLabel(period, periods[i])}: ${fmtValue(v?.value, m.unit, m.decimals) || "no number"}`} />;
-        })}
-      </div>
-      <div className="row" style={{ alignItems: "flex-end" }}>
-        {entry(prev, period === "week" ? "Last week" : "Last")}
-        {entry(cur, period === "week" ? "This week" : "This")}
-      </div>
-    </div>
-  );
-}
-
 // ─── Editing ────────────────────────────────────────────────────────────────
 
-function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | null; card: Card; all: Measurable[]; onClose: () => void; onSaved: () => void }) {
+function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | null; card: Card; all: Measurable[]; onClose: () => void; onSaved: (id: string) => void }) {
   const { me, company } = useMe();
   const { active } = useMembers();
   const [form, setForm] = useState({
@@ -255,9 +482,9 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
   });
   const [error, setError] = useState("");
 
-  const run = async (p: PromiseLike<{ error: unknown }>) => {
-    const { error } = await p;
-    if (error) setError(friendlyError(error)); else onSaved();
+  const run = async (p: PromiseLike<{ data: unknown; error: unknown }>) => {
+    const { data, error } = await p;
+    if (error) setError(friendlyError(error)); else onSaved(m?.id ?? (data as { id: string }).id);
   };
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -271,18 +498,8 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
     };
     run(m ? supabase.from("ss_measurables").update(row).eq("id", m.id)
       : supabase.from("ss_measurables").insert({ ...row, company_id: company.id, scorecard_id: card.id,
-          sort_order: all.reduce((n, x) => Math.max(n, x.sort_order), 0) + 1 }));
+          sort_order: all.reduce((n, x) => Math.max(n, x.sort_order), 0) + 1 }).select("id").single());
   };
-  const move = async (by: number) => {
-    if (!m) return;
-    const i = all.findIndex((x) => x.id === m.id), other = all[i + by];
-    if (!other) return;
-    // Renumber the whole list so equal sort numbers can't stop a move.
-    const order = [...all]; [order[i], order[i + by]] = [order[i + by], order[i]];
-    await Promise.all(order.map((x, n) => x.sort_order === n ? null : supabase.from("ss_measurables").update({ sort_order: n }).eq("id", x.id)));
-    onSaved();
-  };
-
   return (
     <Sheet title={m ? "Edit Number" : "New Number"} onClose={onClose}>
       <form className="stack" onSubmit={save}>
@@ -326,15 +543,6 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
         <p className="small muted">Changing the goal doesn't recolour past numbers: each number keeps the goal it was entered against.</p>
         {error && <p className="error">{error}</p>}
         <button className="btn btn-primary">{m ? "Save" : "Add Number"}</button>
-        {m && <div className="row wrap">
-          <button type="button" className="btn btn-sm" onClick={() => move(-1)} disabled={all[0]?.id === m.id}><ArrowUp size={16} />Up</button>
-          <button type="button" className="btn btn-sm" onClick={() => move(1)} disabled={all.at(-1)?.id === m.id}><ArrowDown size={16} />Down</button>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm btn-danger"
-            onClick={() => confirm("Move this number to the recycle bin? Its history is kept.") && run(supabase.from("ss_measurables").update({ deleted_at: new Date().toISOString() }).eq("id", m.id))}>
-            <Trash2 size={16} />Recycle bin
-          </button>
-        </div>}
       </form>
     </Sheet>
   );

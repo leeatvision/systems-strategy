@@ -18,7 +18,7 @@ import { Headlines } from "./screens/Headlines";
 import { RecycleBin } from "./screens/RecycleBin";
 import { Notifications } from "./screens/Notifications";
 import { Search } from "./screens/Search";
-import { Scorecard } from "./screens/Scorecard";
+import { KeyNumberDetail, Scorecard } from "./screens/Scorecard";
 import { MeetingDetail, Meetings } from "./screens/Meetings";
 import { MeetingLive } from "./screens/MeetingLive";
 import { MeetingHistory } from "./screens/MeetingHistory";
@@ -57,6 +57,7 @@ function Gate() {
           <Route path="meetings/:id/live" element={<MeetingLive />} />
           <Route path="meetings/:id/history" element={<MeetingHistory />} />
           <Route path="key-numbers" element={<Scorecard />} />
+          <Route path="key-numbers/:id" element={<KeyNumberDetail />} />
           <Route path="scorecard" element={<Moved to="/key-numbers" />} />
           <Route path="vision-plan" element={<VisionPlan />} />
           <Route path="org-chart" element={<ChartScreen />} />
