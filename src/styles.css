@@ -699,3 +699,10 @@ html:has(.sheet-backdrop) { overflow: hidden; }
 .sc-now { box-shadow: inset 0 0 0 2px var(--color-brand); }
 th.sc-now { color: var(--color-fg); }
 td.sc-now .sc-input::placeholder { color: var(--gray-300); }
+/* Live meeting: the Back/Next bar stays above tables' frozen columns, and a long "Next" name shortens instead of running off. */
+.live-nav { z-index: 4; gap: 8px; }
+.live-nav .btn { min-width: 0; }
+.live-nav .btn-primary { flex: 0 1 auto; overflow: hidden; }
+.live-nav .btn-primary .next-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .sc .sc-title { min-width: 150px; max-width: 170px; } }
+.live-nav .btn:not(.btn-primary) { flex: none; }

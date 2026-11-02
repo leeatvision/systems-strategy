@@ -179,7 +179,7 @@ export function MeetingLive() {
           <div className="row live-nav">
             <button className="btn" disabled={idx === 0} onClick={() => goTo(idx - 1)}><ChevronLeft size={18} />Back</button>
             <span className="spacer" />
-            {idx < agenda.length - 1 && <button className="btn btn-primary" onClick={() => goTo(idx + 1)}>Next: {agenda[idx + 1].title}<ChevronRight size={18} /></button>}
+            {idx < agenda.length - 1 && <button className="btn btn-primary" onClick={() => goTo(idx + 1)} title={`Next: ${agenda[idx + 1].title}`}><span className="next-label">Next: {agenda[idx + 1].title}</span><ChevronRight size={18} style={{ flex: "none" }} /></button>}
           </div>
         </section>
       </div>
@@ -301,7 +301,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
   const table = (list: Measurable[], period: Period, cols: string[], title?: string) => list.length > 0 && (
     <div className="stack" style={{ gap: 6 }}>
       {title && <h3 className="label section-label">{title}</h3>}
-      <div className="card sc-wrap">
+      <div className="card sc-wrap" ref={(el) => { if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = "1"; } }}>
         <table className="sc">
           <thead><tr><th className="sc-title">Number · goal</th>{cols.map((c, i) => (
             <th key={c} className={`sc-head${i === cols.length - 1 ? " sc-now" : ""}`}>{t.tl.label(period, c)}</th>
@@ -565,7 +565,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
 
 function Conclude({ p, onEnd, agenda, used }: { p: SectionProps; onEnd: (sessionId: string) => void; agenda: SessionAgenda[]; used: (a: SessionAgenda) => number }) {
   const [newTodos, setNewTodos] = useState<Todo[]>([]);
-  const [clear, setClear] = useState(p.session.clear_done_items);
+  const [clear, setClear] = useState(false);
   const [busy, setBusy] = useState(false);
   const mine = p.attendees.find((a) => a.member_id === p.me.id);
   useEffect(() => {

@@ -28,7 +28,11 @@ export function RecycleBin() {
     const results = await Promise.all(TABLES.map(({ table, label, owner }) =>
       supabase.from(table).select(`id, title, owner_member_id:${owner ?? "owner_member_id"}, deleted_at`).not("deleted_at", "is", null)
         .then(({ data }) => ((data ?? []) as unknown as Omit<Binned, "table" | "label">[]).map((r) => ({ ...r, table, label })))));
-    setItems(results.flat().sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)));
+    // Past meetings have no title of their own: name them by meeting and date.
+    const { data: past } = await supabase.from("ss_meeting_sessions").select("id, started_at, created_by, deleted_at, meeting:ss_meetings(title)").not("deleted_at", "is", null);
+    const sessions = ((past ?? []) as unknown as { id: string; started_at: string; created_by: string | null; deleted_at: string; meeting: { title: string } | null }[])
+      .map((r) => ({ table: "ss_meeting_sessions", label: "Past meeting", id: r.id, title: `${r.meeting?.title ?? "Meeting"} · ${fmtDay(r.started_at, true)}`, owner_member_id: r.created_by, deleted_at: r.deleted_at }));
+    setItems([...results.flat(), ...sessions].sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)));
   }, []);
   useEffect(() => { load(); }, [load]);
 

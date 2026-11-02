@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Check, ChevronLeft, Square, Star } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { Check, ChevronLeft, Square, Star, Trash2 } from "lucide-react";
+import { friendlyError, supabase } from "../lib/supabase";
 import { fmtDateTime, fmtDay, useMembers, useOpenParam } from "../lib/data";
 import { mmss, type MeetingRow, type Session, type SessionAgenda } from "../lib/meetings";
 import { Empty } from "../components/ui";
@@ -12,20 +12,28 @@ export function MeetingHistory() {
   const [meeting, setMeeting] = useState<MeetingRow | null>(null);
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [open, setOpen] = useState<Session | null>(null);
+  const [error, setError] = useState("");
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!id) return;
     supabase.from("ss_meetings").select("*").eq("id", id).maybeSingle().then(({ data }) => setMeeting(data as MeetingRow | null));
-    supabase.from("ss_meeting_sessions").select("*").eq("meeting_id", id).eq("status", "ended").order("started_at", { ascending: false })
+    supabase.from("ss_meeting_sessions").select("*").eq("meeting_id", id).eq("status", "ended").is("deleted_at", null).order("started_at", { ascending: false })
       .then(({ data }) => setSessions((data ?? []) as Session[]));
-  }, [id]);
+  }, [id, reload]);
+  const toBin = async (s: Session) => {
+    if (!confirm(`Move the ${fmtDay(s.started_at, true)} meeting to the recycle bin? Its To-Dos and Issues stay.`)) return;
+    const { error } = await supabase.from("ss_meeting_sessions").update({ deleted_at: new Date().toISOString() }).eq("id", s.id);
+    if (error) setError(friendlyError(error)); else { setOpen(null); setReload((n) => n + 1); }
+  };
   useOpenParam(sessions, "ss_meeting_sessions", setOpen);
 
   const ratings = (sessions ?? []).map((s) => s.summary?.average_rating).filter((x): x is number => typeof x === "number");
   return (
     <div className="stack">
-      <Link to="/meetings" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Meetings</Link>
-      <h1>{meeting?.title ?? "Meeting"} history</h1>
+      <Link to={id ? `/meetings/${id}` : "/meetings"} className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />{meeting?.title ?? "Meetings"}</Link>
+      <h1>Past Meetings</h1>
+      {error && <p className="error">{error}</p>}
       {ratings.length > 0 && <p className="small muted">Average rating over {ratings.length} meeting{ratings.length === 1 ? "" : "s"}: <strong>{(ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)}</strong></p>}
       {sessions === null ? <p className="muted">Loading…</p> : sessions.length === 0 ? <Empty>No finished meetings yet.</Empty> : (
         <ul className="card list">
@@ -36,16 +44,17 @@ export function MeetingHistory() {
                 <div className="small muted">{s.summary ? `${s.summary.minutes} min · ${s.summary.attendees.length} there · ${s.summary.issues_solved.length} Issue${s.summary.issues_solved.length === 1 ? "" : "s"} resolved · To-Dos ${s.summary.todos_total ? Math.round((s.summary.todos_done / s.summary.todos_total) * 100) : 0}% done` : ""}</div>
               </div>
               {s.summary?.average_rating != null && <span className="badge badge-green"><Star size={12} style={{ verticalAlign: -1 }} /> {s.summary.average_rating}</span>}
+              <button className="btn btn-sm btn-ghost" aria-label="Move to recycle bin" title="Move to recycle bin" onClick={(e) => { e.stopPropagation(); toBin(s); }}><Trash2 size={16} /></button>
             </li>
           ))}
         </ul>
       )}
-      {open && <RecapSheet session={open} onClose={() => setOpen(null)} />}
+      {open && <RecapSheet session={open} onClose={() => setOpen(null)} onBin={() => toBin(open)} />}
     </div>
   );
 }
 
-function RecapSheet({ session, onClose }: { session: Session; onClose: () => void }) {
+function RecapSheet({ session, onClose, onBin }: { session: Session; onClose: () => void; onBin: () => void }) {
   const { byId } = useMembers();
   const [agenda, setAgenda] = useState<SessionAgenda[]>([]);
   useEffect(() => {
@@ -89,6 +98,7 @@ function RecapSheet({ session, onClose }: { session: Session; onClose: () => voi
           )}
         </div>
       )}
+      <button className="btn btn-sm btn-danger" style={{ marginTop: 16 }} onClick={onBin}><Trash2 size={16} />Move to recycle bin</button>
     </Sheet>
   );
 }

@@ -60,7 +60,7 @@ export function Insights() {
           .gte("created_at", `${start}T00:00:00`).lte("created_at", `${end}T23:59:59`).is("deleted_at", null),
         supabase.from("ss_issues").select("id, owner_member_id, status, created_at, solved_at")
           .eq("status", "open").is("deleted_at", null).is("archived_at", null),
-        supabase.from("ss_meeting_sessions").select("id, meeting_id, started_at, summary").eq("status", "ended")
+        supabase.from("ss_meeting_sessions").select("id, meeting_id, started_at, summary").eq("status", "ended").is("deleted_at", null)
           .gte("started_at", `${start}T00:00:00`).lte("started_at", `${end}T23:59:59`).order("started_at"),
         supabase.from("ss_meetings").select("id, title"),
         supabase.from("ss_scorecards").select("id, period"),
