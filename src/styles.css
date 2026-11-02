@@ -689,3 +689,10 @@ ol.process-list { list-style: none; margin: 0; padding: 0; }
 .key-line { display: inline-block; width: 16px; border-top: 2px dashed var(--color-fg-muted); margin-left: 6px; }
 .trend-bar.sc-on-bar, .mini-spark > .sc-on-bar { background: var(--color-brand); }
 .trend-bar.sc-off-bar, .mini-spark > .sc-off-bar { background: var(--color-danger); }
+
+/* Scrollbars: the page behind an open sheet is locked, so the only scrollbar is the sheet's own
+   (and only when it really has more to show). The side menu's scrollbar stays slim and dark. */
+html:has(.sheet-backdrop) { overflow: hidden; }
+.sheet { overscroll-behavior: contain; scrollbar-width: thin; max-height: 92dvh; }
+.sheet-backdrop { overscroll-behavior: contain; }
+.sidebar { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
