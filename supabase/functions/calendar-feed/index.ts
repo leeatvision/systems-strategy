@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
   const stamp = utc(new Date());
   const lines = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Systems Strategy//Calendar feed//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
-    `X-WR-CALNAME:${esc(`${company?.name ?? "Team"} To-Dos & meetings`)}`, `X-WR-TIMEZONE:${tz}`,
+    `X-WR-CALNAME:${esc(`${company?.name ?? "Team"} To-Dos and Meetings`)}`, `X-WR-TIMEZONE:${tz}`,
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H",
   ];
 

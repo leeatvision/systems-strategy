@@ -1,7 +1,7 @@
 import { useState, type DragEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Member } from "../lib/supabase";
-import { addDays, endOfWeek, fmtDay, isoDay, today, type Todo } from "../lib/data";
+import { addDays, endOfWeek, fmtDay, isoDay, startOfWeek, today, type Todo } from "../lib/data";
 import { PersonalBadge, Chips, Tick } from "../components/ui";
 
 interface ViewProps {
@@ -56,7 +56,7 @@ function Card({ t, p, compact }: { t: Todo; p: ViewProps; compact?: boolean }) {
 
 export function TodoBoard(p: ViewProps) {
   const now = today(), weekEnd = endOfWeek(), nextEnd = addDays(weekEnd, 7);
-  const friday = (sunday: string) => addDays(sunday, -2);
+  const friday = (saturday: string) => addDays(saturday, -1);
   const open = p.todos.filter((t) => t.status === "open");
   const cols: { key: string; title: string; list: Todo[]; due?: string }[] = [
     { key: "overdue", title: "Overdue", list: open.filter((t) => t.due_date < now) },
@@ -86,12 +86,8 @@ export function TodoBoard(p: ViewProps) {
 
 // ─── Calendar ───────────────────────────────────────────────────────────────
 
-const mondayOf = (day: string) => {
-  const d = new Date(`${day}T12:00:00`);
-  return addDays(day, -((d.getDay() + 6) % 7));
-};
 const dayOf = (t: Todo) => t.due_date;
-const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function TodoCalendar(p: ViewProps) {
   const [mode, setMode] = useState<"week" | "month">("week");
@@ -107,14 +103,14 @@ export function TodoCalendar(p: ViewProps) {
   let days: string[];
   let title: string;
   if (mode === "week") {
-    const mon = mondayOf(anchor);
+    const mon = startOfWeek(anchor);
     days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
     title = `${fmtDay(days[0])} – ${fmtDay(days[6], true)}`;
   } else {
     const a = new Date(`${anchor}T12:00:00`);
     const first = isoDay(new Date(a.getFullYear(), a.getMonth(), 1));
     const last = isoDay(new Date(a.getFullYear(), a.getMonth() + 1, 0));
-    const start = mondayOf(first);
+    const start = startOfWeek(first);
     const weeks = Math.ceil((((new Date(`${last}T12:00:00`).getTime() - new Date(`${start}T12:00:00`).getTime()) / 86400000) + 1) / 7);
     days = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i));
     title = a.toLocaleDateString(undefined, { month: "long", year: "numeric" });

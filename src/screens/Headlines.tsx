@@ -97,7 +97,7 @@ export function Headlines() {
       {!showFilters && extra > 0 && items && (
         <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {items.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
       )}
-      <p className="small muted">Short good or bad news about customers and people, shared at the meeting.</p>
+      <p className="small muted">Quick news to share at the meeting.</p>
       <form className="card card-pad stack no-print" style={{ gap: 10 }} onSubmit={add}>
         <div className="row">
           <input className="input" placeholder="Add a Headline…" value={title} onChange={(e) => setTitle(e.target.value)} />

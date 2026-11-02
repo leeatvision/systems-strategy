@@ -346,7 +346,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .live-nav { bottom: 0; }
 }
 
-/* Vision & Plan */
+/* Vision and Plan */
 .plan-page { margin-top: var(--space-2); }
 .plan-card { display: flex; flex-direction: column; }
 .plan-block { display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--color-border); }
@@ -652,3 +652,19 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .badge-personal { display: inline-flex; align-items: center; gap: 3px; background: var(--gray-200); color: var(--gray-700); }
 .seg-text button { width: auto; padding: 0 10px; font: inherit; font-size: 13px; font-weight: 600; }
 @media (max-width: 360px) { .seg button { width: 32px; } .seg-text button { width: auto; padding: 0 7px; } .toolbar .iconbtn { width: 32px; } }
+.step-num { flex: none; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; background: var(--color-bg-muted); color: var(--color-fg-secondary); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.step-details { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+ol.process-list { list-style: none; margin: 0; padding: 0; }
+.agenda-view { flex-direction: row; align-items: center; gap: 10px; }
+.agenda-view .step-text { flex: 1; min-width: 0; }
+.minutes-input { width: 72px; flex: none; }
+.avatar-stack { display: inline-flex; }
+.avatar-stack .avatar + .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--color-bg); }
+.plan-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.45; }
+.plan-read { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.plan-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; font-size: 14px; }
+.plan-summary > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.folds .plan-body { padding: 0; }
+.select-sm { min-height: 34px; font-size: 13px; padding: 0 8px; }
+.plan-field > span.plan-text { font-size: 14px; font-weight: 400; color: var(--color-fg); }
+.plan-field > span.plan-text.muted { color: var(--color-fg-muted); }

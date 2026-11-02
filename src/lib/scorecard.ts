@@ -1,4 +1,4 @@
-import { addDays, isoDay, today } from "./data";
+import { addDays, isoDay, startOfWeek, today } from "./data";
 
 export type Period = "week" | "month" | "quarter" | "year";
 export type Unit = "number" | "dollar" | "percent" | "hours" | "days";
@@ -49,10 +49,10 @@ export const UNIT_LABEL: Record<Unit, string> = { number: "Number", dollar: "Dol
 export const COMPARISON_LABEL: Record<Comparison, string> = { gte: "At least (≥)", lte: "At most (≤)", eq: "Exactly (=)", between: "Between" };
 export const PERIOD_LABEL: Record<Period, string> = { week: "Weekly", month: "Monthly", quarter: "Quarterly", year: "Yearly" };
 
-/** Start of the period containing `day` (weeks start Monday). */
+/** Start of the period containing `day` (weeks start Sunday). */
 export function periodStart(period: Period, day = today()): string {
   const d = new Date(`${day}T12:00:00`);
-  if (period === "week") return addDays(day, -((d.getDay() + 6) % 7));
+  if (period === "week") return startOfWeek(day);
   if (period === "month") return isoDay(new Date(d.getFullYear(), d.getMonth(), 1));
   if (period === "quarter") return isoDay(new Date(d.getFullYear(), Math.floor(d.getMonth() / 3) * 3, 1));
   return `${d.getFullYear()}-01-01`;

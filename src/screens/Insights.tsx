@@ -86,7 +86,7 @@ export function Insights() {
     return () => { live = false; };
   }, [q.quarter, q.year, start, end, upTo]);
 
-  // Mondays from the start of the quarter up to this week (or the quarter's last week).
+  // Week starts (Sundays) from the start of the quarter up to this week (or the quarter's last week).
   const weeks = useMemo(() => {
     const out: string[] = [];
     for (let w = periodStart("week", start); w <= upTo; w = addDays(w, 7)) out.push(w);

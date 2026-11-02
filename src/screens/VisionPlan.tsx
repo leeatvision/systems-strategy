@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, BadgeCheck, Copy, Link2, Plus, Printer, Trash2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, BadgeCheck, ChevronsUpDown, Copy, Link2, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal } from "../lib/data";
-import { Empty } from "../components/ui";
+import { Empty, Fold, Menu } from "../components/ui";
 
 interface Version {
   id: string; company_id: string; title: string; status: "draft" | "official" | "archived";
@@ -27,24 +28,32 @@ const COPY_FIELDS: VersionField[] = ["title", "purpose", "niche", "long_term_tar
   "one_year_profit", "quarter_date", "quarter_revenue", "quarter_profit"];
 
 /** A text that saves itself when you leave it. */
-function Editable({ value, onSave, placeholder, multiline, type }: { value: string | null; onSave: (v: string | null) => void; placeholder?: string; multiline?: boolean; type?: string }) {
+function Editable({ value, onSave, placeholder, multiline, type, ro }: { value: string | null; onSave: (v: string | null) => void; placeholder?: string; multiline?: boolean; type?: string; ro?: boolean }) {
   const [v, setV] = useState(value ?? "");
   useEffect(() => setV(value ?? ""), [value]);
   const done = () => { const next = v.trim() || null; if (next !== (value ?? null)) onSave(next); };
+  if (ro) return value ? <span className="plan-text">{type === "date" ? fmtDay(value, true) : value}</span> : <span className="plan-text muted">Not filled in</span>;
   return multiline
     ? <textarea className="plan-input" rows={Math.max(2, v.split("\n").length)} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={done} />
     : <input className="plan-input" type={type ?? "text"} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={done}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />;
 }
 
-function Block({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** One section of the plan: read as text, the pencil turns on editing for just that section. */
+function PlanFold({ title, hint, count, open, onToggle, editing, onEdit, children }: {
+  title: string; hint?: string; count?: number; open: boolean; onToggle: () => void; editing: boolean; onEdit: () => void; children: ReactNode;
+}) {
   return (
-    <div className="plan-block">
-      <div className="plan-label"><h3>{title}</h3>{hint && <span className="small muted">{hint}</span>}</div>
+    <Fold title={title} count={count} open={open} onToggle={onToggle}
+      action={<button type="button" className={`btn btn-sm ${editing ? "btn-primary" : "btn-ghost"} no-print`} onClick={onEdit}>
+        {editing ? "Done" : <><Pencil size={14} />Edit</>}</button>}>
+      {hint && <p className="small muted" style={{ margin: "0 0 8px" }}>{hint}</p>}
       <div className="plan-body">{children}</div>
-    </div>
+    </Fold>
   );
 }
+
+const SECTIONS = ["values", "purpose", "target", "marketing", "three", "one", "quarter", "issues"];
 
 export function VisionPlan() {
   const { me, company, isOwner } = useMe();
@@ -55,6 +64,14 @@ export function VisionPlan() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [error, setError] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<Set<string>>(new Set());
+  // Printing shows every section, as text.
+  useEffect(() => {
+    const before = () => flushSync(() => { setOpen(new Set(SECTIONS)); setEditing(new Set()); });
+    window.addEventListener("beforeprint", before);
+    return () => window.removeEventListener("beforeprint", before);
+  }, []);
 
   const load = useCallback(async (pick?: string) => {
     const { data } = await supabase.from("ss_plan_versions").select("*").neq("status", "archived").order("created_at", { ascending: false });
@@ -82,7 +99,7 @@ export function VisionPlan() {
   const setField = (k: VersionField) => (value: string | null) => v && run(supabase.from("ss_plan_versions").update({ [k]: value }).eq("id", v.id));
 
   const create = async (from: Version | null) => {
-    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: "Vision & Plan" };
+    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: "Vision and Plan" };
     const { data, error } = await supabase.from("ss_plan_versions").insert({ ...base, company_id: company.id, status: "draft", created_by: me.id }).select("id").single();
     if (error) { setError(friendlyError(error)); return; }
     if (from) {
@@ -93,7 +110,7 @@ export function VisionPlan() {
     load(data.id);
   };
   const publish = async () => {
-    if (!v || !confirm("Make this the official Vision & Plan? The current official one is kept as an archived version.")) return;
+    if (!v || !confirm("Make this the official Vision and Plan? The current official one is kept as an archived version.")) return;
     const official = versions?.find((x) => x.status === "official");
     if (official) {
       const { error } = await supabase.from("ss_plan_versions").update({ status: "archived" }).eq("id", official.id);
@@ -107,9 +124,9 @@ export function VisionPlan() {
   if (!v) {
     return (
       <div className="stack">
-        <h1>Vision & Plan</h1>
-        <Empty>No Vision & Plan yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
-        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the Vision & Plan</button>
+        <h1>Vision and Plan</h1>
+        <Empty>No Vision and Plan yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
+        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the Vision and Plan</button>
         {error && <p className="error">{error}</p>}
       </div>
     );
@@ -119,86 +136,113 @@ export function VisionPlan() {
   const lists = { list, items, versionId: v.id, companyId: company.id, reload: () => load(v.id), onError: setError };
   const q = currentQuarter();
 
+  const fold = (key: string) => ({
+    open: open.has(key), editing: editing.has(key),
+    onToggle: () => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }),
+    onEdit: () => { setEditing((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }); setOpen((o) => new Set(o).add(key)); },
+  });
+  const ro = (key: string) => !editing.has(key);
+  const allOpen = open.size === SECTIONS.length;
+
   return (
-    <div className="stack plan">
-      <div className="page-head">
+    <div className="stack plan goal-page">
+      <div className="page-head goals-head">
         <h1>{v.title}</h1>
-        <span className={`badge ${v.status === "official" ? "badge-green" : "badge-warn"}`}>{v.status === "official" ? "Official" : "Draft"}</span>
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost no-print" onClick={() => print()} aria-label="Print" title="Print"><Printer size={18} /></button>
+        <Menu items={[
+          { label: allOpen ? "Close all sections" : "Open all sections", icon: <ChevronsUpDown size={16} />, onSelect: () => setOpen(allOpen ? new Set() : new Set(SECTIONS)) },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Make a draft copy", icon: <Copy size={16} />, onSelect: () => create(v), hidden: v.status !== "official" },
+          { label: "Archive draft", icon: <Archive size={16} />, onSelect: discard, hidden: v.status === "official", danger: true },
+        ]} />
       </div>
-      <div className="row wrap no-print">
-        {versions.length > 1 && (
-          <select className="select" style={{ width: "auto" }} value={v.id} onChange={(e) => load(e.target.value)}>
-            {versions.map((x) => <option key={x.id} value={x.id}>{x.status === "official" ? "Official" : "Draft"} · {fmtDay(x.updated_at, true)}</option>)}
-          </select>
+
+      <div className="card card-pad goal-summary">
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className={`badge badge-lg ${v.status === "official" ? "badge-green" : "badge-warn"}`} style={{ cursor: "default" }}>{v.status === "official" ? "Official" : "Draft"}</span>
+          <span className="small muted">{v.status === "official" && v.published_at ? `Official since ${fmtDay(v.published_at, true)} · ` : ""}Updated {fmtDay(v.updated_at, true)}</span>
+          <span className="spacer" />
+          {versions.length > 1 && (
+            <select className="select select-sm no-print" style={{ width: "auto" }} value={v.id} onChange={(e) => load(e.target.value)} aria-label="Version">
+              {versions.map((x) => <option key={x.id} value={x.id}>{x.status === "official" ? "Official" : "Draft"} · {fmtDay(x.updated_at, true)}</option>)}
+            </select>
+          )}
+        </div>
+        {v.long_term_target && <p className="goal-finish"><span className="muted">Long-Term Target</span> {v.long_term_target}{v.long_term_target_date && <span className="muted nowrap"> · by {fmtDay(v.long_term_target_date, true)}</span>}</p>}
+        <div className="plan-summary">
+          {([["3-Year", "three_year"], ["1-Year", "one_year"], [`Q${q.quarter}`, "quarter"]] as const).map(([label, p]) => (
+            <div key={p}><span className="muted small">{label}{v[`${p}_date`] ? ` · ${fmtDay(v[`${p}_date`], true)}` : ""}</span>
+              <span>{v[`${p}_revenue`] || "—"} <span className="muted small">revenue</span></span>
+              <span>{v[`${p}_profit`] || "—"} <span className="muted small">profit</span></span></div>
+          ))}
+        </div>
+        {v.status !== "official" && (
+          <div className="row no-print" style={{ gap: 8 }}>
+            <span className="small muted" style={{ flex: 1 }}>A draft. Make it official when the leadership team agrees.</span>
+            <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
+          </div>
         )}
-        <span className="spacer" />
-        {v.status === "official"
-          ? <button className="btn btn-sm" onClick={() => create(v)}><Copy size={16} />Make a draft copy</button>
-          : <>
-              <button className="btn btn-sm btn-ghost" onClick={discard}>Archive draft</button>
-              <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
-            </>}
       </div>
-      {v.status === "official" && <p className="small muted no-print">You're editing the official Vision & Plan directly. For bigger rewrites, make a draft copy and make it official when everyone agrees.</p>}
       {error && <p className="error">{error}</p>}
 
-      <h2 className="plan-page">Vision</h2>
-      <div className="card plan-card">
-        <Block title="Values" hint="3 to 7 rules you live by"><ItemList section="value" {...lists} placeholder="A Value" withNotes /></Block>
-        <Block title="Purpose & Niche" hint="Why you exist, and what you're best at">
-          <label className="plan-field"><span>Purpose / cause / passion</span><Editable value={v.purpose} onSave={setField("purpose")} multiline /></label>
-          <label className="plan-field"><span>Niche</span><Editable value={v.niche} onSave={setField("niche")} multiline /></label>
-        </Block>
-        <Block title="Long-Term Target" hint="One big, long-range goal">
-          <Editable value={v.long_term_target} onSave={setField("long_term_target")} multiline />
-          <label className="plan-field"><span>By</span><Editable type="date" value={v.long_term_target_date} onSave={setField("long_term_target_date")} /></label>
-        </Block>
-        <Block title="Marketing Strategy">
-          <label className="plan-field"><span>Target market ("the list")</span><Editable value={v.target_market} onSave={setField("target_market")} multiline /></label>
-          <div className="plan-field"><span>What Sets Us Apart (3)</span><ItemList section="differentiator" {...lists} placeholder="What makes you different" /></div>
-          <label className="plan-field"><span>How We Work</span><Editable value={v.how_we_work} onSave={setField("how_we_work")} multiline /></label>
-          <label className="plan-field"><span>Guarantee</span><Editable value={v.guarantee} onSave={setField("guarantee")} multiline /></label>
-        </Block>
-        <Block title="3-Year Vision">
-          <Money v={v} prefix="three_year" setField={setField} />
-          <div className="plan-field"><span>Measurables</span><ItemList section="three_year_measurable" {...lists} placeholder="Measurable" withValue /></div>
-          <div className="plan-field"><span>What does it look like?</span><ItemList section="three_year_goal" {...lists} placeholder="Describe it" /></div>
-        </Block>
+      <h2 className="steps-head">Vision</h2>
+      <div className="card folds">
+        <PlanFold title="Values" hint="3 to 7 rules you live by" count={list("value").length} {...fold("values")}>
+          <ItemList section="value" {...lists} ro={ro("values")} placeholder="A Value" withNotes />
+        </PlanFold>
+        <PlanFold title="Purpose and Niche" hint="Why you exist, and what you're best at" {...fold("purpose")}>
+          <label className="plan-field"><span>Purpose / cause / passion</span><Editable ro={ro("purpose")} value={v.purpose} onSave={setField("purpose")} multiline /></label>
+          <label className="plan-field"><span>Niche</span><Editable ro={ro("purpose")} value={v.niche} onSave={setField("niche")} multiline /></label>
+        </PlanFold>
+        <PlanFold title="Long-Term Target" hint="One big, long-range goal" {...fold("target")}>
+          <label className="plan-field"><span>Target</span><Editable ro={ro("target")} value={v.long_term_target} onSave={setField("long_term_target")} multiline /></label>
+          <label className="plan-field"><span>By</span><Editable ro={ro("target")} type="date" value={v.long_term_target_date} onSave={setField("long_term_target_date")} /></label>
+        </PlanFold>
+        <PlanFold title="Marketing Strategy" {...fold("marketing")}>
+          <label className="plan-field"><span>Target market ("the list")</span><Editable ro={ro("marketing")} value={v.target_market} onSave={setField("target_market")} multiline /></label>
+          <div className="plan-field"><span>What Sets Us Apart (3)</span><ItemList section="differentiator" {...lists} ro={ro("marketing")} placeholder="What makes you different" /></div>
+          <label className="plan-field"><span>How We Work</span><Editable ro={ro("marketing")} value={v.how_we_work} onSave={setField("how_we_work")} multiline /></label>
+          <label className="plan-field"><span>Guarantee</span><Editable ro={ro("marketing")} value={v.guarantee} onSave={setField("guarantee")} multiline /></label>
+        </PlanFold>
+        <PlanFold title="3-Year Vision" {...fold("three")}>
+          <Money v={v} prefix="three_year" setField={setField} ro={ro("three")} />
+          <div className="plan-field"><span>Measurables</span><ItemList section="three_year_measurable" {...lists} ro={ro("three")} placeholder="Measurable" withValue /></div>
+          <div className="plan-field"><span>What does it look like?</span><ItemList section="three_year_goal" {...lists} ro={ro("three")} placeholder="Describe it" /></div>
+        </PlanFold>
       </div>
 
-      <h2 className="plan-page">Plan</h2>
-      <div className="card plan-card">
-        <Block title="1-Year Plan">
-          <Money v={v} prefix="one_year" setField={setField} />
-          <div className="plan-field"><span>Measurables</span><ItemList section="one_year_measurable" {...lists} placeholder="Measurable" withValue /></div>
-          <div className="plan-field"><span>Goals for the year (3 to 7)</span><ItemList section="one_year_goal" {...lists} placeholder="Goal" withOwner /></div>
-        </Block>
-        <Block title="Quarterly Goals" hint={`This quarter: Q${q.quarter} ${q.year}`}>
-          <Money v={v} prefix="quarter" setField={setField} />
-          <div className="plan-field"><span>Measurables</span><ItemList section="quarter_measurable" {...lists} placeholder="Measurable" withValue /></div>
+      <h2 className="steps-head">Plan</h2>
+      <div className="card folds">
+        <PlanFold title="1-Year Plan" {...fold("one")}>
+          <Money v={v} prefix="one_year" setField={setField} ro={ro("one")} />
+          <div className="plan-field"><span>Measurables</span><ItemList section="one_year_measurable" {...lists} ro={ro("one")} placeholder="Measurable" withValue /></div>
+          <div className="plan-field"><span>Goals for the year (3 to 7)</span><ItemList section="one_year_goal" {...lists} ro={ro("one")} placeholder="Goal" withOwner /></div>
+        </PlanFold>
+        <PlanFold title="Quarterly Goals" hint={`This quarter: Q${q.quarter} ${q.year}`} count={list("quarter_goal").length} {...fold("quarter")}>
+          <Money v={v} prefix="quarter" setField={setField} ro={ro("quarter")} />
+          <div className="plan-field"><span>Measurables</span><ItemList section="quarter_measurable" {...lists} ro={ro("quarter")} placeholder="Measurable" withValue /></div>
           <div className="plan-field"><span>Goals</span>
-            <LinkedList section="quarter_goal" {...lists} options={goals.filter((r) => r.quarter === q.quarter && r.quarter_year === q.year && r.goal_type === "company")}
+            <LinkedList section="quarter_goal" {...lists} ro={ro("quarter")} options={goals.filter((r) => r.quarter === q.quarter && r.quarter_year === q.year && r.goal_type === "company")}
               all={goals} kind="goal" render={(r) => <><Link to={`/goals/${r.id}`}>{r.title}</Link> <span className="small muted">· {byId(r.owner_member_id)?.first_name} · {GOAL_STATUS[(r as Goal).status].label}</span></>} />
           </div>
-        </Block>
-        <Block title="Issues List" hint="Long-term issues, not this week's">
-          <LinkedList section="long_term_issue" {...lists} options={issues} all={issues} kind="issue" allowText
+        </PlanFold>
+        <PlanFold title="Issues List" hint="Long-term issues, not this week's" count={list("long_term_issue").length} {...fold("issues")}>
+          <LinkedList section="long_term_issue" {...lists} ro={ro("issues")} options={issues} all={issues} kind="issue" allowText
             render={(i) => <><Link to={`/issues?open=${i.id}`}>{i.title}</Link> <span className="small muted">· {byId(i.owner_member_id)?.first_name ?? "Unassigned"}</span></>} />
-        </Block>
+        </PlanFold>
       </div>
-      {!isOwner && <p className="small muted no-print">Only owners can delete Vision & Plan versions permanently; drafts can be archived by anyone.</p>}
+      {v.status === "official" && <p className="small muted no-print">Edits here change the official Vision and Plan directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
+      {!isOwner && <p className="small muted no-print">Only owners can delete Vision and Plan versions permanently; drafts can be archived by anyone.</p>}
     </div>
   );
 }
 
-function Money({ v, prefix, setField }: { v: Version; prefix: "three_year" | "one_year" | "quarter"; setField: (k: VersionField) => (value: string | null) => void }) {
+function Money({ v, prefix, setField, ro }: { v: Version; prefix: "three_year" | "one_year" | "quarter"; setField: (k: VersionField) => (value: string | null) => void; ro?: boolean }) {
   return (
     <div className="plan-money">
-      <label className="plan-field"><span>Date</span><Editable type="date" value={v[`${prefix}_date`]} onSave={setField(`${prefix}_date`)} /></label>
-      <label className="plan-field"><span>Revenue</span><Editable value={v[`${prefix}_revenue`]} onSave={setField(`${prefix}_revenue`)} placeholder="$" /></label>
-      <label className="plan-field"><span>Profit</span><Editable value={v[`${prefix}_profit`]} onSave={setField(`${prefix}_profit`)} placeholder="$" /></label>
+      <label className="plan-field"><span>Date</span><Editable ro={ro} type="date" value={v[`${prefix}_date`]} onSave={setField(`${prefix}_date`)} /></label>
+      <label className="plan-field"><span>Revenue</span><Editable ro={ro} value={v[`${prefix}_revenue`]} onSave={setField(`${prefix}_revenue`)} placeholder="$" /></label>
+      <label className="plan-field"><span>Profit</span><Editable ro={ro} value={v[`${prefix}_profit`]} onSave={setField(`${prefix}_profit`)} placeholder="$" /></label>
     </div>
   );
 }
@@ -225,9 +269,24 @@ function useItemOps({ section, list, versionId, companyId, reload, onError }: Li
   };
 }
 
-function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean; withValue?: boolean; withOwner?: boolean }) {
+function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean; withValue?: boolean; withOwner?: boolean; ro?: boolean }) {
   const { rows, add, patch, remove, move } = useItemOps(props);
-  const { active } = useMembers();
+  const { active, byId } = useMembers();
+  if (props.ro) {
+    if (!rows.length) return <span className="plan-text muted">Not filled in</span>;
+    return (
+      <ol className="plan-read">
+        {rows.map((it) => (
+          <li key={it.id}>
+            <span>{it.title || <span className="muted">Untitled</span>}</span>
+            {props.withValue && it.value && <span className="muted"> · {it.value}</span>}
+            {props.withOwner && it.owner_member_id && <span className="muted"> · {byId(it.owner_member_id)?.first_name}</span>}
+            {props.withNotes && it.notes && <div className="small muted">{it.notes}</div>}
+          </li>
+        ))}
+      </ol>
+    );
+  }
   return (
     <div className="plan-list">
       {rows.map((it, i) => (
@@ -257,13 +316,21 @@ function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean;
 
 /** Items that point at real Goals or Issues (or, for Issues, plain text). */
 function LinkedList<T extends { id: string; title: string; owner_member_id: string | null }>(props: ListProps & {
-  options: T[]; all: T[]; kind: "goal" | "issue"; allowText?: boolean; render: (x: T) => ReactNode;
+  options: T[]; all: T[]; kind: "goal" | "issue"; allowText?: boolean; render: (x: T) => ReactNode; ro?: boolean;
 }) {
   const { rows, add, remove, patch } = useItemOps(props);
   const key = props.kind === "goal" ? "linked_goal_id" : "linked_issue_id";
+  const [pick, setPick] = useState("");
+  if (props.ro) {
+    if (!rows.length) return <span className="plan-text muted">None yet</span>;
+    return (
+      <ol className="plan-read">
+        {rows.map((it) => { const target = props.all.find((x) => x.id === it[key]); return <li key={it.id}>{target ? props.render(target) : <span className={it[key] ? "muted" : ""}>{it.title || "(removed)"}</span>}</li>; })}
+      </ol>
+    );
+  }
   const linked = new Set(rows.map((r) => r[key]).filter(Boolean));
   const unlinked = props.options.filter((o) => !linked.has(o.id));
-  const [pick, setPick] = useState("");
   return (
     <div className="plan-list">
       {rows.map((it, i) => {

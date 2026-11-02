@@ -107,8 +107,10 @@ export function Checkups() {
       <div className="page-head">
         <h1>Checkups</h1>
         <span className="spacer" />
-        <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Checkup Types &amp; Standard Questions</button>
-        <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}><Plus size={16} />New checkup</button>
+        <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}><Plus size={16} />New Checkup</button>
+      </div>
+      <div className="row">
+        <button className="btn btn-sm" onClick={() => setStandard(true)}><ListChecks size={16} />Checkup Types and Standard Questions</button>
       </div>
       <p className="small muted">A quick, honest read on how the organisation, culture or anything else is doing. Each type starts from its Standard Questions, so results compare from one checkup to the next; Other is for one-off checkups with your own questions. Run one every quarter or so and watch the trend.</p>
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <Empty>No checkups yet.</Empty> : <>
@@ -377,7 +379,7 @@ const toGroups = (lines: Line[]): Group[] => {
 const fromGroups = (groups: Group[]): Line[] =>
   groups.flatMap((g) => g.items.map((t) => t.trim()).filter(Boolean).map((text) => ({ group_title: g.title.trim() || null, text })));
 
-/** Checkup Types & Standard Questions: owners add types and edit each type's statements; everyone can read them. */
+/** Checkup Types and Standard Questions: owners add types and edit each type's statements; everyone can read them. */
 function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<typeof useCheckupTypes>; onClose: () => void }) {
   const { company, isOwner } = useMe();
   const { active, reload } = checkupTypes;
@@ -447,7 +449,7 @@ function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<type
   };
 
   return (
-    <Sheet title="Checkup Types & Standard Questions" onClose={onClose}>
+    <Sheet title="Checkup Types and Standard Questions" onClose={onClose}>
       <div className="stack">
         <div className="row wrap" style={{ gap: 8 }}>
           <Chips value={type?.key ?? ""} onChange={setKey} options={active.map((t) => ({ value: t.key, label: t.name }))} />

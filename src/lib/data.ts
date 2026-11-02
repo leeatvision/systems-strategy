@@ -202,10 +202,13 @@ export function addDays(day: string, n: number): string {
   d.setDate(d.getDate() + n);
   return isoDay(d);
 }
-/** Sunday that ends this Monday-to-Sunday week. */
+/** Weeks run Sunday to Saturday everywhere in the app. */
+export function startOfWeek(day = today()): string {
+  return addDays(day, -new Date(`${day}T12:00:00`).getDay());
+}
+/** Saturday that ends this Sunday-to-Saturday week. */
 export function endOfWeek(day = today()): string {
-  const d = new Date(`${day}T12:00:00`);
-  return addDays(day, (7 - d.getDay()) % 7);
+  return addDays(startOfWeek(day), 6);
 }
 export function fmtDay(day: string | null | undefined, withYear = false): string {
   if (!day) return "";
@@ -249,7 +252,7 @@ export function parsePlainDate(input: string, from = today()): { title: string; 
     [/\s+(?:by\s+|on\s+|due\s+)?(next\s+)?([a-z]+)$/i, (m) => {
       const wd = WEEKDAYS[m[2].toLowerCase()];
       if (wd === undefined) return null;
-      // "fri" = the coming Friday (today if it is Friday); "next fri" = Friday of next week (weeks start Monday).
+      // "fri" = the coming Friday (today if it is Friday); "next fri" = Friday of next week.
       if (!m[1]) return addDays(from, (wd - base.getDay() + 7) % 7);
       const nextMonday = addDays(from, ((8 - base.getDay()) % 7) || 7);
       return addDays(nextMonday, (wd + 6) % 7);

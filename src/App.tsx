@@ -19,7 +19,7 @@ import { RecycleBin } from "./screens/RecycleBin";
 import { Notifications } from "./screens/Notifications";
 import { Search } from "./screens/Search";
 import { Scorecard } from "./screens/Scorecard";
-import { Meetings } from "./screens/Meetings";
+import { MeetingDetail, Meetings } from "./screens/Meetings";
 import { MeetingLive } from "./screens/MeetingLive";
 import { MeetingHistory } from "./screens/MeetingHistory";
 import { VisionPlan } from "./screens/VisionPlan";
@@ -53,6 +53,7 @@ function Gate() {
           <Route path="settings/notifications" element={<NotificationSettings />} />
           <Route path="search" element={<Search />} />
           <Route path="meetings" element={<Meetings />} />
+          <Route path="meetings/:id" element={<MeetingDetail />} />
           <Route path="meetings/:id/live" element={<MeetingLive />} />
           <Route path="meetings/:id/history" element={<MeetingHistory />} />
           <Route path="scorecard" element={<Scorecard />} />

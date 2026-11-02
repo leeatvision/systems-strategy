@@ -74,8 +74,8 @@ export interface Recap {
 }
 
 export const AGENDA_LABEL: Record<AgendaType, string> = {
-  good_news: "Good News", check_in: "Check-in", scorecard: "Scorecard", goal_review: "Goal Review", headlines: "Headlines",
-  todo_list: "To-Do list", discuss_solve: "Discuss & Solve", conclude: "Conclude", custom: "Custom section",
+  good_news: "Good News", check_in: "Check-In", scorecard: "Scorecard", goal_review: "Goal Review", headlines: "Headlines",
+  todo_list: "To-Do List", discuss_solve: "Discuss and Solve", conclude: "Conclude", custom: "Custom Section",
 };
 
 export const MEETING_TYPE: Record<MeetingRow["meeting_type"], string> = {
@@ -91,8 +91,8 @@ export const STANDARD_AGENDA: { item_type: AgendaType; title: string; minutes: n
   { item_type: "scorecard", title: "Scorecard", minutes: 5 },
   { item_type: "goal_review", title: "Goal Review", minutes: 5 },
   { item_type: "headlines", title: "Headlines", minutes: 5 },
-  { item_type: "todo_list", title: "To-Do list", minutes: 5 },
-  { item_type: "discuss_solve", title: "Discuss & Solve", minutes: 60, fill_time: true },
+  { item_type: "todo_list", title: "To-Do List", minutes: 5 },
+  { item_type: "discuss_solve", title: "Discuss and Solve", minutes: 60, fill_time: true },
   { item_type: "conclude", title: "Conclude", minutes: 5 },
 ];
 
