@@ -6,8 +6,8 @@ import { useMe } from "../lib/session";
 import { fmtDateTime, today, useMembers, useOpenParam } from "../lib/data";
 import { downloadCsv } from "../lib/csv";
 import {
-  COMPARISON_LABEL, PERIOD_LABEL, UNIT_LABEL, fmtValue, goalText, onTrack, parseNumber, periodLabel, recentPeriods,
-  type Comparison, type MValue, type Measurable, type Period, type Scorecard as Card, type Unit,
+  COMPARISON_LABEL, PERIOD_LABEL, UNIT_LABEL, fmtValue, goalText, onTrack, parseNumber, recentPeriods, scheduleOf, timeline, upcomingMeeting,
+  type Comparison, type MValue, type Timeline, type Measurable, type Period, type Scorecard as Card, type Unit,
 } from "../lib/scorecard";
 import { Avatar, Empty, Fold, Menu, OwnerSelect, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
@@ -33,8 +33,8 @@ function useWide() {
 
 const periodOf = (m: Measurable, card: Card): Period => m.period_override ?? card.period;
 /** The most recent period with a number in it, among the last few. */
-function latest(m: Measurable, card: Card, valueFor: (m: Measurable, p: string) => MValue | undefined) {
-  const ps = recentPeriods(periodOf(m, card), TREND[periodOf(m, card)]).reverse();
+function latest(m: Measurable, card: Card, t: Timeline, valueFor: (m: Measurable, p: string) => MValue | undefined) {
+  const ps = t.periods(periodOf(m, card), TREND[periodOf(m, card)]).reverse();
   for (const p of ps) { const v = valueFor(m, p); if (v && v.value !== null) return { p, v }; }
   return null;
 }
@@ -46,6 +46,7 @@ function useKeyNumbers() {
   const [card, setCard] = useState<Card | null | undefined>(undefined);
   const [measurables, setMeasurables] = useState<Measurable[]>([]);
   const [values, setValues] = useState<MValue[]>([]);
+  const [t, setT] = useState<Timeline>(() => timeline(null));
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -53,6 +54,9 @@ function useKeyNumbers() {
     const sc = ((cards ?? []) as Card[])[0] ?? null;
     setCard(sc);
     if (!sc) return;
+    // Weekly numbers are dated by the meeting these Key Numbers belong to.
+    const { data: mt } = sc.meeting_id ? await supabase.from("ss_meetings").select("first_meeting_at, cadence").eq("id", sc.meeting_id).maybeSingle() : { data: null };
+    setT(timeline(scheduleOf(mt as { first_meeting_at: string | null; cadence: string } | null)));
     const { data: ms } = await supabase.from("ss_measurables").select("*").eq("scorecard_id", sc.id)
       .is("deleted_at", null).is("archived_at", null).order("sort_order").order("title");
     const list = (ms ?? []) as Measurable[];
@@ -91,7 +95,7 @@ function useKeyNumbers() {
     }
     load();
   };
-  return { card, measurables, values, valueFor, save, load, error, setError };
+  return { card, measurables, values, valueFor, save, load, error, setError, t };
 }
 
 export function Scorecard() {
@@ -99,7 +103,7 @@ export function Scorecard() {
   const { byId } = useMembers();
   const navigate = useNavigate();
   const wide = useWide();
-  const { card, measurables, values, valueFor, save, load, error } = useKeyNumbers();
+  const { card, measurables, values, valueFor, save, load, error, t } = useKeyNumbers();
   const filters = useFilters("keynumbers", { owner: "all" });
   const [editing, setEditing] = useState<"new" | null>(null);
   const [settings, setSettings] = useState(false);
@@ -116,12 +120,21 @@ export function Scorecard() {
   const mine = measurables.filter((m) => filters.values.owner !== "me" || m.owner_member_id === me.id);
   const sections = SECTION_ORDER.map((p) => {
     const list = mine.filter((m) => periodOf(m, card) === p);
-    let periods = recentPeriods(p, p === card.period ? card.periods_to_show : COUNT[p]);
+    let periods = t.periods(p, p === card.period ? card.periods_to_show : COUNT[p]);
     if (card.newest_first) periods = [...periods].reverse();
     return { period: p, list, periods };
   }).filter((s) => s.list.length);
   // Numbers still missing for their last full period (last week, last month…).
-  const missing = mine.filter((m) => { const p = recentPeriods(periodOf(m, card), 2)[0]; return !valueFor(m, p); });
+  // Weekly ones count from two days before their meeting; others once their period has ended.
+  const nextWeek = t.pair("week");
+  const soon = !t.sched || (new Date(`${upcomingMeeting(t.sched)}T12:00:00`).getTime() - new Date(`${today()}T12:00:00`).getTime()) / 86400000 <= 2;
+  const missing = mine.filter((m) => {
+    const per = periodOf(m, card);
+    if (per === "week" && t.sched) return soon && !valueFor(m, nextWeek.cur);
+    return !valueFor(m, t.pair(per).prev);
+  });
+  const missingText = missing.every((m) => periodOf(m, card) === "week") && t.sched ? `for the ${t.label("week", nextWeek.cur)} meeting`
+    : missing.every((m) => periodOf(m, card) === "week") ? "for last week" : "";
 
   const exportCsv = () => {
     const rows: (string | number | null)[][] = [];
@@ -136,10 +149,10 @@ export function Scorecard() {
   };
 
   const row = (m: Measurable) => {
-    const last = latest(m, card, valueFor);
+    const last = latest(m, card, t, valueFor);
     const ok = statusOf(last?.v);
     const per = periodOf(m, card);
-    const spark = recentPeriods(per, 8).map((p) => valueFor(m, p));
+    const spark = t.periods(per, 8).map((p) => valueFor(m, p));
     const max = Math.max(...spark.map((v) => Math.abs(v?.value ?? 0)), Math.abs(m.goal_value ?? 0), 1);
     return (
       <li key={m.id} className="clickable" onClick={() => navigate(`/key-numbers/${m.id}`)}>
@@ -156,7 +169,7 @@ export function Scorecard() {
         </div>
         <div className="kn-latest">
           <span className={`badge ${ok === true ? "badge-green" : ok === false ? "badge-danger" : ""}`}>{last ? fmtValue(last.v.value, m.unit, m.decimals) : "No number"}</span>
-          {last && <span className="small muted">{periodLabel(per, last.p)}</span>}
+          {last && <span className="small muted">{t.label(per, last.p)}</span>}
         </div>
       </li>
     );
@@ -186,7 +199,7 @@ export function Scorecard() {
       </div>
       {missing.length > 0 && (
         <div className="close-banner no-print">
-          <span>{missing.length} number{missing.length === 1 ? "" : "s"} still to enter for last {missing.every((m) => periodOf(m, card) === "week") ? "week" : "period"}</span>
+          <span>{missing.length} number{missing.length === 1 ? "" : "s"} still to enter{missingText ? ` ${missingText}` : ""}</span>
           <button type="button" className="link-btn" onClick={() => setEntering(true)}>Enter</button>
         </div>
       )}
@@ -197,7 +210,7 @@ export function Scorecard() {
       {sections.map((s) => (
         <Section key={s.period} title={PERIOD_LABEL[s.period]} count={s.list.length}>
           {view === "grid"
-            ? <Grid card={card} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onOpen={(m) => navigate(`/key-numbers/${m.id}`)} />
+            ? <Grid card={card} t={t} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onOpen={(m) => navigate(`/key-numbers/${m.id}`)} />
             : <ul className="card list">{s.list.map(row)}</ul>}
         </Section>
       ))}
@@ -207,14 +220,14 @@ export function Scorecard() {
 
       {editing && <MeasurableSheet m={null} card={card} all={measurables} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); navigate(`/key-numbers/${id}`); }} />}
       {settings && <SettingsSheet card={card} onClose={() => setSettings(false)} onSaved={() => { setSettings(false); load(); }} />}
-      {entering && <EnterSheet card={card} list={mine} valueFor={valueFor} onSave={save} onClose={() => setEntering(false)} />}
+      {entering && <EnterSheet card={card} t={t} list={mine} valueFor={valueFor} onSave={save} onClose={() => setEntering(false)} />}
     </div>
   );
 }
 
 /** Quick entry: every number's last full period (and the current one) in one sheet. */
-function EnterSheet({ card, list, valueFor, onSave, onClose }: {
-  card: Card; list: Measurable[]; valueFor: (m: Measurable, p: string) => MValue | undefined;
+function EnterSheet({ card, t, list, valueFor, onSave, onClose }: {
+  card: Card; t: Timeline; list: Measurable[]; valueFor: (m: Measurable, p: string) => MValue | undefined;
   onSave: (m: Measurable, p: string, t: string) => Promise<void>; onClose: () => void;
 }) {
   const [which, setWhich] = useState<0 | 1>(0);
@@ -222,22 +235,23 @@ function EnterSheet({ card, list, valueFor, onSave, onClose }: {
     <Sheet title="Enter Numbers" onClose={onClose}>
       <div className="stack">
         <div className="seg seg-text" role="group" aria-label="Which period" style={{ alignSelf: "flex-start" }}>
-          <button type="button" className={which === 0 ? "on" : ""} onClick={() => setWhich(0)}>Last period</button>
-          <button type="button" className={which === 1 ? "on" : ""} onClick={() => setWhich(1)}>This period</button>
+          <button type="button" className={which === 0 ? "on" : ""} onClick={() => setWhich(0)}>{t.sched ? "Last meeting" : "Last period"}</button>
+          <button type="button" className={which === 1 ? "on" : ""} onClick={() => setWhich(1)}>{t.sched ? t.pair("week").curName : "This period"}</button>
         </div>
         <ul className="list enter-list">
           {list.map((m) => {
             const per = periodOf(m, card);
-            const p = recentPeriods(per, 2)[which];
+            const pr = t.pair(per);
+            const p = which === 0 ? pr.prev : pr.cur;
             const v = valueFor(m, p);
             const ok = statusOf(v);
             return (
               <li key={`${m.id}-${p}`}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="item-title">{m.title}</div>
-                  <div className="small muted">{per === "week" ? `Week of ${periodLabel(per, p)}` : periodLabel(per, p)} · goal {goalText(m)}</div>
+                  <div className="small muted">{per === "week" ? (t.sched ? `Meeting ${t.label(per, p)}` : `Week of ${t.label(per, p)}`) : t.label(per, p)} · goal {goalText(m)}</div>
                 </div>
-                <input className={`input enter-input${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`} inputMode="decimal" aria-label={`${m.title}, ${periodLabel(per, p)}`}
+                <input className={`input enter-input${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`} inputMode="decimal" aria-label={`${m.title}, ${t.label(per, p)}`}
                   defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => onSave(m, p, e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
               </li>
@@ -258,7 +272,7 @@ export function KeyNumberDetail() {
   const navigate = useNavigate();
   const { me, company } = useMe();
   const { byId, members } = useMembers();
-  const { card, measurables, valueFor, save, load, error, setError } = useKeyNumbers();
+  const { card, measurables, valueFor, save, load, error, setError, t } = useKeyNumbers();
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState<NumberFold | null>(null);
   const [msg, setMsg] = useState("");
@@ -267,11 +281,11 @@ export function KeyNumberDetail() {
   if (!card || !m) return measurables.length || card === null ? <p className="error">That number wasn't found.</p> : <p className="muted">Loading…</p>;
 
   const per = periodOf(m, card);
-  const periods = recentPeriods(per, TREND[per]);
-  const last = latest(m, card, valueFor);
+  const periods = t.periods(per, TREND[per]);
+  const last = latest(m, card, t, valueFor);
   const ok = statusOf(last?.v);
   const owner = byId(m.owner_member_id);
-  const [prevP, curP] = recentPeriods(per, 2);
+  const pr = t.pair(per);
   const toggle = (f: NumberFold) => setOpen(open === f ? null : f);
 
   const move = async (by: number) => {
@@ -295,14 +309,14 @@ export function KeyNumberDetail() {
     const v = valueFor(m, p);
     const s = statusOf(v);
     return (
-      <label className="field" style={{ flex: 1, minWidth: 0 }}><span className="small">{label} <span className="muted">· {periodLabel(per, p)}</span></span>
+      <label className="field" style={{ flex: 1, minWidth: 0 }}><span className="small">{label} <span className="muted">· {t.label(per, p)}</span></span>
         <input key={`${p}-${v?.value ?? ""}`} className={`input${s === true ? " sc-on" : s === false ? " sc-off" : ""}`} inputMode="decimal"
           defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => save(m, p, e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
       </label>
     );
   };
-  const word = per === "week" ? "week" : per;
+  const word = per === "week" ? (t.sched ? "meeting" : "week") : per;
 
   return (
     <div className="stack goal-page" style={{ maxWidth: 760 }}>
@@ -329,21 +343,21 @@ export function KeyNumberDetail() {
           <span>{PERIOD_LABEL[per]}</span>
           <span>Goal {goalText(m)}</span>
         </div>
-        {last && <p className="goal-finish"><span className="muted">Latest</span> <strong>{fmtValue(last.v.value, m.unit, m.decimals)}</strong> <span className="muted">· {periodLabel(per, last.p)}</span></p>}
+        {last && <p className="goal-finish"><span className="muted">Latest</span> <strong>{fmtValue(last.v.value, m.unit, m.decimals)}</strong> <span className="muted">· {t.label(per, last.p)}</span></p>}
         {m.description && <p className="goal-desc">{m.description}</p>}
       </div>
       {(error || msg) && <p className={error ? "error" : "notice"}>{error || msg}</p>}
 
       <section className="stack" style={{ gap: 8 }}>
         <h2 className="steps-head">Trend<span className="count">last {periods.length} {word}s</span></h2>
-        <div className="card card-pad"><Trend m={m} per={per} periods={periods} valueFor={valueFor} /></div>
+        <div className="card card-pad"><Trend m={m} t={t} per={per} periods={periods} valueFor={valueFor} /></div>
       </section>
 
       <section className="stack" style={{ gap: 8 }}>
         <h2 className="steps-head">Enter</h2>
         <div className="card card-pad row" style={{ alignItems: "flex-end" }}>
-          {entry(prevP, `Last ${word}`)}
-          {entry(curP, `This ${word}`)}
+          {entry(pr.prev, pr.prevName)}
+          {entry(pr.cur, pr.curName)}
         </div>
       </section>
 
@@ -355,9 +369,9 @@ export function KeyNumberDetail() {
               const s = statusOf(v);
               return (
                 <li key={p}>
-                  <span style={{ flex: 1 }}>{periodLabel(per, p)}{v && v.goal_value !== null && v.goal_value !== m.goal_value ? <span className="small muted"> · goal then {fmtValue(v.goal_value, m.unit, m.decimals)}</span> : null}</span>
+                  <span style={{ flex: 1 }}>{t.label(per, p)}{v && v.goal_value !== null && v.goal_value !== m.goal_value ? <span className="small muted"> · goal then {fmtValue(v.goal_value, m.unit, m.decimals)}</span> : null}</span>
                   <input key={`${p}-${v?.value ?? ""}`} className={`input enter-input${s === true ? " sc-on" : s === false ? " sc-off" : ""}`} inputMode="decimal"
-                    aria-label={periodLabel(per, p)} defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => save(m, p, e.target.value)}
+                    aria-label={t.label(per, p)} defaultValue={v?.value?.toString() ?? ""} onBlur={(e) => save(m, p, e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                 </li>
               );
@@ -376,7 +390,7 @@ export function KeyNumberDetail() {
 }
 
 /** Bars for each period, green on track and red off, with the goal as a dashed line. */
-function Trend({ m, per, periods, valueFor }: { m: Measurable; per: Period; periods: string[]; valueFor: (m: Measurable, p: string) => MValue | undefined }) {
+function Trend({ m, t, per, periods, valueFor }: { m: Measurable; t: Timeline; per: Period; periods: string[]; valueFor: (m: Measurable, p: string) => MValue | undefined }) {
   const vals = periods.map((p) => valueFor(m, p));
   const nums = vals.map((v) => v?.value).filter((x): x is number => x !== null && x !== undefined);
   const goals = [m.goal_value, m.comparison === "between" ? m.goal_value_upper : null].filter((x): x is number => x !== null);
@@ -391,7 +405,7 @@ function Trend({ m, per, periods, valueFor }: { m: Measurable; per: Period; peri
           const s = statusOf(v);
           const has = v?.value != null;
           return (
-            <span key={periods[i]} className="trend-col" title={`${periodLabel(per, periods[i])}: ${has ? fmtValue(v!.value, m.unit, m.decimals) : "no number"}${s === true ? " (on track)" : s === false ? " (off track)" : ""}`}>
+            <span key={periods[i]} className="trend-col" title={`${t.label(per, periods[i])}: ${has ? fmtValue(v!.value, m.unit, m.decimals) : "no number"}${s === true ? " (on track)" : s === false ? " (off track)" : ""}`}>
               {i === lastIdx && <span className="trend-val">{fmtValue(v!.value, m.unit, m.decimals)}</span>}
               <span className={`trend-bar${s === true ? " sc-on-bar" : s === false ? " sc-off-bar" : ""}${has ? "" : " trend-empty"}`}
                 style={{ height: has ? `${Math.max(2, (Math.abs(v!.value!) / max) * 100)}%` : 2 }} />
@@ -399,7 +413,7 @@ function Trend({ m, per, periods, valueFor }: { m: Measurable; per: Period; peri
           );
         })}
       </div>
-      <div className="trend-axis"><span>{periodLabel(per, periods[0])}</span><span>{periodLabel(per, periods.at(-1)!)}</span></div>
+      <div className="trend-axis"><span>{t.label(per, periods[0])}</span><span>{t.label(per, periods.at(-1)!)}</span></div>
       <figcaption className="trend-key small muted"><span className="key-dot sc-on-bar" />On track <span className="key-dot sc-off-bar" />Off track <span className="key-line" />Goal</figcaption>
     </figure>
   );
@@ -421,8 +435,8 @@ function Cell({ m, period, v, onSave }: { m: Measurable; period: string; v: MVal
   );
 }
 
-function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onOpen }: {
-  card: Card; period: Period; periods: string[]; list: Measurable[]; loaded: number;
+function Grid({ card, t, period, periods, list, loaded, valueFor, byId, onSave, onOpen }: {
+  card: Card; t: Timeline; period: Period; periods: string[]; list: Measurable[]; loaded: number;
   valueFor: (m: Measurable, p: string) => MValue | undefined; byId: ReturnType<typeof useMembers>["byId"];
   onSave: (m: Measurable, p: string, t: string) => void; onOpen: (m: Measurable) => void;
 }) {
@@ -437,7 +451,7 @@ function Grid({ card, period, periods, list, loaded, valueFor, byId, onSave, onO
         <thead>
           <tr>
             <th className="sc-title">Number · goal</th>
-            {periods.map((p) => <th key={p} className="sc-head">{periodLabel(period, p)}</th>)}
+            {periods.map((p) => <th key={p} className="sc-head">{t.label(period, p)}</th>)}
             {card.show_total && <th className="sc-head">Total</th>}
             {card.show_average && <th className="sc-head">Avg</th>}
           </tr>

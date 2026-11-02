@@ -696,3 +696,6 @@ html:has(.sheet-backdrop) { overflow: hidden; }
 .sheet { overscroll-behavior: contain; scrollbar-width: thin; max-height: 92dvh; }
 .sheet-backdrop { overscroll-behavior: contain; }
 .sidebar { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.sc-now { box-shadow: inset 0 0 0 2px var(--color-brand); }
+th.sc-now { color: var(--color-fg); }
+td.sc-now .sc-input::placeholder { color: var(--gray-300); }

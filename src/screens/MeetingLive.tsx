@@ -7,7 +7,7 @@ import {
   GOAL_STATUS, addDays, currentQuarter, fmtDateTime, fmtDay, today, useMembers,
   type Headline, type Issue, type Goal, type Todo,
 } from "../lib/data";
-import { fmtValue, goalText, onTrack, periodLabel, periodStart, recentPeriods, type MValue, type Measurable } from "../lib/scorecard";
+import { fmtValue, goalText, nearestMeeting, onTrack, parseNumber, recentPeriods, scheduleOf, timeline, type MValue, type Measurable, type Period } from "../lib/scorecard";
 import {
   mmss, type AgendaItem, type Attendee, type MeetingRow, type Recap, type Session, type SessionAgenda, type SessionEvent,
 } from "../lib/meetings";
@@ -251,38 +251,78 @@ function GoAround({ p, prompt }: { p: SectionProps; prompt: string }) {
   );
 }
 
+/**
+ * Key Numbers at the meeting: weekly numbers under the last few meeting dates, with today's column to fill in;
+ * at the first meeting of a month (or year) the monthly (or yearly) numbers for the one just ended too.
+ */
 function ScorecardReview({ p }: { p: SectionProps }) {
-  const [rows, setRows] = useState<{ m: Measurable; v: (MValue | undefined)[] }[] | null>(null);
-  const weeks = useMemo(() => recentPeriods("week", 4, addDays(periodStart("week"), -1)), []); // last 4 finished weeks
-  useEffect(() => {
-    (async () => {
-      const { data: card } = await supabase.from("ss_scorecards").select("id").eq("meeting_id", p.meeting.id).maybeSingle();
-      if (!card) { setRows([]); return; }
-      const { data: ms } = await supabase.from("ss_measurables").select("*").eq("scorecard_id", card.id).is("deleted_at", null).is("archived_at", null).is("period_override", null).order("sort_order");
-      const list = (ms ?? []) as Measurable[];
-      const { data: vs } = list.length ? await supabase.from("ss_measurable_values").select("*").in("measurable_id", list.map((m) => m.id)).gte("period_start", weeks[0]) : { data: [] };
-      setRows(list.map((m) => ({ m, v: weeks.map((w) => ((vs ?? []) as MValue[]).find((x) => x.measurable_id === m.id && x.period_start === w)) })));
-    })();
-  }, [p.meeting.id, p.tick, weeks]);
-  if (!rows) return <p className="muted">Loading…</p>;
-  if (!rows.length) return <Empty>No weekly Key Numbers for this meeting yet.</Empty>;
-  return (
-    <div className="stack">
-      <p className="muted">Each owner reports on track or off track. Anything off track goes to Issues; discuss it there, not here.</p>
+  const [data, setData] = useState<{ list: Measurable[]; values: MValue[]; period: Period } | null>(null);
+  const [error, setError] = useState("");
+  const sched = scheduleOf(p.meeting);
+  const t = useMemo(() => {
+    // The column for this meeting is the scheduled date closest to today.
+    const day = sched ? nearestMeeting(sched) : today();
+    return { day, tl: timeline(sched, day) };
+  }, [sched?.first, sched?.step]); // the schedule, not the object
+  const weeks = t.tl.periods("week", 4);
+  const prevDay = sched ? addDays(t.day, -sched.step) : addDays(t.day, -7);
+  const firstOfMonth = prevDay.slice(0, 7) !== t.day.slice(0, 7);
+  const firstOfYear = prevDay.slice(0, 4) !== t.day.slice(0, 4);
+  const months = recentPeriods("month", 3, addDays(`${t.day.slice(0, 7)}-01`, -1));
+  const years = recentPeriods("year", 2, addDays(`${t.day.slice(0, 4)}-01-01`, -1));
+
+  const load = useCallback(async () => {
+    const { data: card } = await supabase.from("ss_scorecards").select("id, period").eq("meeting_id", p.meeting.id).maybeSingle();
+    if (!card) { setData({ list: [], values: [], period: "week" }); return; }
+    const { data: ms } = await supabase.from("ss_measurables").select("*").eq("scorecard_id", card.id).is("deleted_at", null).is("archived_at", null).order("sort_order");
+    const list = (ms ?? []) as Measurable[];
+    const from = [weeks[0], months[0], years[0]].sort()[0];
+    const { data: vs } = list.length ? await supabase.from("ss_measurable_values").select("*").in("measurable_id", list.map((m) => m.id)).gte("period_start", from) : { data: [] };
+    setData({ list, values: (vs ?? []) as MValue[], period: card.period as Period });
+  }, [p.meeting.id, weeks.join(), months.join(), years.join()]); // the dates, not the arrays
+  useEffect(() => { load(); }, [load, p.tick]);
+
+  if (!data) return <p className="muted">Loading…</p>;
+  const per = (m: Measurable): Period => m.period_override ?? data.period;
+  const valueFor = (m: Measurable, ps: string) => data.values.find((x) => x.measurable_id === m.id && x.period_start === ps);
+  const save = async (m: Measurable, ps: string, text: string) => {
+    const n = parseNumber(text);
+    const existing = valueFor(m, ps);
+    if (Number.isNaN(n)) { setError(`"${text}" isn't a number.`); return; }
+    setError("");
+    const q = n === null ? (existing ? supabase.from("ss_measurable_values").delete().eq("id", existing.id) : null)
+      : existing ? (existing.value === n ? null : supabase.from("ss_measurable_values").update({ value: n }).eq("id", existing.id))
+      : supabase.from("ss_measurable_values").insert({ company_id: p.companyId, measurable_id: m.id, period_start: ps, value: n });
+    if (!q) return;
+    const { error } = await q;
+    if (error) setError(friendlyError(error)); else load();
+  };
+
+  const table = (list: Measurable[], period: Period, cols: string[], title?: string) => list.length > 0 && (
+    <div className="stack" style={{ gap: 6 }}>
+      {title && <h3 className="label section-label">{title}</h3>}
       <div className="card sc-wrap">
         <table className="sc">
-          <thead><tr><th className="sc-title">Number · goal</th>{weeks.map((w) => <th key={w} className="sc-head">{periodLabel("week", w)}</th>)}<th /></tr></thead>
+          <thead><tr><th className="sc-title">Number · goal</th>{cols.map((c, i) => (
+            <th key={c} className={`sc-head${i === cols.length - 1 ? " sc-now" : ""}`}>{t.tl.label(period, c)}</th>
+          ))}<th /></tr></thead>
           <tbody>
-            {rows.map(({ m, v }) => {
-              const last = v.at(-1);
-              const off = onTrack(last?.value ?? null, last?.goal_value ?? null, last?.goal_value_upper ?? null, last?.comparison ?? null) === false;
+            {list.map((m) => {
+              const cur = valueFor(m, cols.at(-1)!);
+              const off = onTrack(cur?.value ?? null, cur?.goal_value ?? null, cur?.goal_value_upper ?? null, cur?.comparison ?? null) === false;
               return (
                 <tr key={m.id}>
                   <td className="sc-title"><div className="row" style={{ gap: 8 }}><Avatar m={p.byId(m.owner_member_id)} size={26} />
                     <div><div className="sc-name">{m.title}</div><div className="small muted">{goalText(m)}</div></div></div></td>
-                  {v.map((x, i) => {
+                  {cols.map((c, i) => {
+                    const x = valueFor(m, c);
                     const ok = onTrack(x?.value ?? null, x?.goal_value ?? null, x?.goal_value_upper ?? null, x?.comparison ?? null);
-                    return <td key={i} className={`sc-cell${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`} style={{ cursor: "default" }}>{fmtValue(x?.value, m.unit, m.decimals)}</td>;
+                    const cls = `sc-cell${ok === true ? " sc-on" : ok === false ? " sc-off" : ""}`;
+                    return i === cols.length - 1
+                      ? <td key={c} className={`${cls} sc-now`}><input key={`${c}-${x?.value ?? ""}`} className="sc-input" inputMode="decimal" defaultValue={x?.value?.toString() ?? ""}
+                          aria-label={`${m.title}, ${t.tl.label(period, c)}`} placeholder="—" onBlur={(e) => save(m, c, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} /></td>
+                      : <td key={c} className={cls} style={{ cursor: "default" }}>{fmtValue(x?.value, m.unit, m.decimals)}</td>;
                   })}
                   <td>{off && <button className="btn btn-sm" onClick={() => dropToIssues(p, `${m.title}: off track`, m.owner_member_id, { type: "measurable", id: m.id })}><CircleAlert size={14} />Issue</button>}</td>
                 </tr>
@@ -291,7 +331,21 @@ function ScorecardReview({ p }: { p: SectionProps }) {
           </tbody>
         </table>
       </div>
-      <Link to="/key-numbers" className="small">Missing a number? Enter it on Key Numbers.</Link>
+    </div>
+  );
+
+  const weekly = data.list.filter((m) => per(m) === "week");
+  const monthly = firstOfMonth ? data.list.filter((m) => per(m) === "month") : [];
+  const yearly = firstOfYear ? data.list.filter((m) => per(m) === "year") : [];
+  if (!weekly.length && !monthly.length && !yearly.length) return <Empty>No Key Numbers for this meeting yet.</Empty>;
+  return (
+    <div className="stack">
+      <p className="muted">Fill in today's column (or check what owners entered beforehand). Each owner reports on track or off track; anything off track goes to Issues, to discuss there.</p>
+      {error && <p className="error">{error}</p>}
+      {table(weekly, "week", weeks, monthly.length || yearly.length ? "Weekly" : undefined)}
+      {table(monthly, "month", months, `Monthly · for ${new Date(`${months.at(-1)!}T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })}`)}
+      {table(yearly, "year", years, `Yearly · for ${years.at(-1)!.slice(0, 4)}`)}
+      <Link to="/key-numbers" className="small">Open Key Numbers</Link>
     </div>
   );
 }

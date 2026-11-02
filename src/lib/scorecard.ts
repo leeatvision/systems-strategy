@@ -74,7 +74,7 @@ export function recentPeriods(period: Period, n: number, ending = today()): stri
 export function periodLabel(period: Period, start: string): string {
   const d = new Date(`${start}T12:00:00`);
   if (period === "week") return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (period === "month") return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  if (period === "month") return `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
   if (period === "quarter") return `Q${Math.floor(d.getMonth() / 3) + 1} '${String(d.getFullYear()).slice(2)}`;
   return String(d.getFullYear());
 }
@@ -111,4 +111,58 @@ export function parseNumber(text: string): number | null {
   if (!t) return null;
   const n = Number(t);
   return Number.isFinite(n) ? n : NaN;
+}
+
+// ─── Weekly numbers follow the Weekly Meeting ───────────────────────────────
+// A weekly number is stored against the week (Sunday start) its meeting falls in, and is shown
+// and entered under that meeting's date. Without a weekly or every-2-weeks meeting, plain weeks are used.
+
+export interface MeetingSchedule { first: string; step: number }
+
+export function scheduleOf(m: { first_meeting_at: string | null; cadence: string } | null | undefined): MeetingSchedule | null {
+  if (!m?.first_meeting_at || (m.cadence !== "weekly" && m.cadence !== "biweekly")) return null;
+  return { first: isoDay(new Date(m.first_meeting_at)), step: m.cadence === "weekly" ? 7 : 14 };
+}
+
+const dayNumber = (d: string) => Math.round(new Date(`${d}T12:00:00Z`).getTime() / 86400000);
+
+/** The meeting on `day` or the next one after it. */
+export function upcomingMeeting(s: MeetingSchedule, day = today()): string {
+  return addDays(s.first, Math.ceil((dayNumber(day) - dayNumber(s.first)) / s.step) * s.step);
+}
+
+/** The scheduled meeting closest to `day` (for a meeting that's running now). */
+export function nearestMeeting(s: MeetingSchedule, day = today()): string {
+  const up = upcomingMeeting(s, day), prev = addDays(up, -s.step);
+  return dayNumber(up) - dayNumber(day) <= dayNumber(day) - dayNumber(prev) ? up : prev;
+}
+
+/** Periods and their names for Key Numbers, with weekly ones following the meeting. */
+export interface Timeline {
+  sched: MeetingSchedule | null;
+  /** The last `n` periods, oldest first, ending with the current one (for weeks: the next meeting). */
+  periods: (period: Period, n: number) => string[];
+  label: (period: Period, start: string) => string;
+  /** Previous and current period with their names ("Last meeting · Oct 27", "This month · Nov '26"). */
+  pair: (period: Period) => { prev: string; cur: string; prevName: string; curName: string };
+}
+
+export function timeline(sched: MeetingSchedule | null, now = today()): Timeline {
+  const meetingDay = (weekStart: string) => sched ? addDays(weekStart, new Date(`${sched.first}T12:00:00`).getDay()) : weekStart;
+  const periods = (period: Period, n: number) => {
+    if (period !== "week" || !sched) return recentPeriods(period, n, now);
+    const up = upcomingMeeting(sched, now);
+    return Array.from({ length: n }, (_, i) => periodStart("week", addDays(up, -sched.step * (n - 1 - i))));
+  };
+  const label = (period: Period, start: string) => period === "week" && sched ? periodLabel("week", meetingDay(start)) : periodLabel(period, start);
+  const pair = (period: Period) => {
+    const [prev, cur] = periods(period, 2);
+    if (period === "week" && sched) {
+      const curDay = meetingDay(cur);
+      return { prev, cur, prevName: "Last meeting", curName: curDay === now ? "Today's meeting" : "Next meeting" };
+    }
+    const word = period === "week" ? "week" : period;
+    return { prev, cur, prevName: `Last ${word}`, curName: `This ${word}` };
+  };
+  return { sched, periods, label, pair };
 }
