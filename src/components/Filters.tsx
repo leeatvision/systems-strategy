@@ -134,3 +134,13 @@ export function FilterBar(props: BarProps) {
     </div>
   );
 }
+
+/** Mine / Everyone switch for the owner filter. A single person picked in Filters lights neither. */
+export function MineToggle({ value, onChange }: { value: string; onChange: (v: "me" | "all") => void }) {
+  return (
+    <span className="seg seg-text" role="group" aria-label="Whose">
+      <button type="button" className={value === "me" ? "on" : ""} aria-pressed={value === "me"} onClick={() => onChange("me")}>Mine</button>
+      <button type="button" className={value === "all" ? "on" : ""} aria-pressed={value === "all"} onClick={() => onChange("all")}>Everyone</button>
+    </span>
+  );
+}

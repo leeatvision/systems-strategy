@@ -20,7 +20,7 @@ const LABELS: Record<string, string> = {
   smart_reviewable: "Reviewable", smart_time_framed: "Time-framed",
   finish_line: "finish line", finish_line_due: "finish line date", finish_line_completed_on: "finish line reached",
   deleted_at: "recycle bin", archived_at: "archive", is_personal: "personal", priority: "priority",
-  solved_at: "solved date", completed_at: "completed date", kind: "kind",
+  solved_at: "resolved date", completed_at: "completed date", kind: "kind",
   activity: "activity", due_on: "date", completed_on: "done date", sort_order: "order",
   followed_by_all: "followed by all", reviewed_on: "review date", details: "details",
 };

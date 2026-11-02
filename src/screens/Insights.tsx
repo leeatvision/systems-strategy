@@ -121,7 +121,7 @@ export function Insights() {
       issueWeeks: weeks.map((w) => {
         const n = data.solved.filter((i) => i.solved_at && weekOf(localDay(i.solved_at)) === w).length;
         const added = data.opened.filter((i) => weekOf(localDay(i.created_at)) === w).length;
-        return { label: periodLabel("week", w), value: n, text: `${n} solved, ${added} added` };
+        return { label: periodLabel("week", w), value: n, text: `${n} resolved, ${added} added` };
       }),
       scoreWeeks: weeks.map((w) => {
         const vs = scored.filter((v) => v.period_start === w);
@@ -173,7 +173,7 @@ export function Insights() {
               detail={s.goalsTotal ? `${s.goalsDone} of ${s.goalsTotal}${s.companyTotal ? ` · company ${s.companyDone} of ${s.companyTotal}` : ""}` : "No Goals this quarter"} to="/goals" />
             <Tile label="To-Dos done on time" value={pct(s.todosOnTime, s.todosTotal)} unit="%" goal={TODO_GOAL}
               detail={s.todosTotal ? `${s.todosOnTime} of ${s.todosTotal} due so far` : future ? "Quarter hasn't started" : "None due yet"} to="/todos" />
-            <Tile label="Issues solved" value={data!.solved.length}
+            <Tile label="Issues resolved" value={data!.solved.length}
               detail={`${data!.opened.length} added · ${data!.openIssues.length} open now`} to="/issues" />
             <Tile label="Meeting rating" value={s.avgRating === null ? null : Math.round(s.avgRating * 10) / 10}
               detail={s.ratings ? `Average of ${s.ratings} meeting${s.ratings === 1 ? "" : "s"}, out of 10` : "No rated meetings"} to="/meetings" />
@@ -200,7 +200,7 @@ export function Insights() {
               <Section title="Scorecard numbers on track, by week">
                 <div className="card card-pad"><Bars data={s.scoreWeeks} max={100} unit="%" /></div>
               </Section>
-              <Section title="Issues solved, by week">
+              <Section title="Issues resolved, by week">
                 <div className="card card-pad"><Bars data={s.issueWeeks} max={Math.max(4, ...s.issueWeeks.map((w) => w.value ?? 0))} /></div>
               </Section>
               <Section title="Meeting ratings">

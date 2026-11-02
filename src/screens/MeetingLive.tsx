@@ -486,7 +486,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
             </div>
             <div className="row" style={{ gap: 6 }}>
               <button className="btn btn-sm" onClick={() => setTodoFor({ issue: i, title: i.title, owner: i.owner_member_id, due: addDays(today(), 7) })}><SquareCheck size={14} />To-Do</button>
-              <button className="btn btn-sm btn-primary" onClick={() => solve(i, true)}><Check size={14} />Solved</button>
+              <button className="btn btn-sm btn-primary" onClick={() => solve(i, true)}><Check size={14} />Resolved</button>
             </div>
           </li>
         ))}
@@ -498,7 +498,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
       </form>
       {solvedNow.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
-          <h3>Solved this meeting <span className="count">{solvedNow.length}</span></h3>
+          <h3>Resolved this meeting <span className="count">{solvedNow.length}</span></h3>
           {solvedNow.map((i) => (
             <div key={i.id} className="row small"><Check size={14} color="var(--color-brand)" /><span style={{ flex: 1 }}>{i.title}</span>
               <button className="link-btn" onClick={() => solve(i, false)}>Reopen</button></div>
@@ -586,7 +586,7 @@ function Conclude({ p, onEnd, agenda, used }: { p: SectionProps; onEnd: (session
       </div>
       <label className="row small" style={{ gap: 8, cursor: "pointer" }}>
         <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
-        Archive done To-Dos, solved Issues and reviewed Headlines (they stay in history and search)
+        Archive done To-Dos, resolved Issues and reviewed Headlines (they stay in history and search)
       </label>
       <button className="btn btn-primary" disabled={busy} onClick={end}>End meeting</button>
     </div>

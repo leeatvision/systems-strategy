@@ -11,7 +11,7 @@ type State = { label: string; badge: string };
 const STATES: Record<string, Record<string, State>> = {
   goal: GOAL_STATUS as Record<GoalStatus, State>,
   todo: { open: { label: "Open", badge: "badge-warn" }, done: { label: "Done", badge: "badge-done" } },
-  issue: { open: { label: "Open", badge: "badge-warn" }, solved: { label: "Solved", badge: "badge-done" } },
+  issue: { open: { label: "Open", badge: "badge-warn" }, solved: { label: "Resolved", badge: "badge-done" } },
   headline: { to_review: { label: "To review", badge: "badge-warn" }, reviewed: { label: "Reviewed", badge: "badge-done" } },
   process: { draft: { label: "Draft", badge: "" }, live: { label: "In use", badge: "badge-green" } },
 };

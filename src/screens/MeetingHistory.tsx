@@ -33,7 +33,7 @@ export function MeetingHistory() {
             <li key={s.id} className="clickable" onClick={() => setOpen(s)} style={{ flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 200px" }}>
                 <div className="item-title">{fmtDateTime(s.started_at)}</div>
-                <div className="small muted">{s.summary ? `${s.summary.minutes} min · ${s.summary.attendees.length} there · ${s.summary.issues_solved.length} Issue${s.summary.issues_solved.length === 1 ? "" : "s"} solved · To-Dos ${s.summary.todos_total ? Math.round((s.summary.todos_done / s.summary.todos_total) * 100) : 0}% done` : ""}</div>
+                <div className="small muted">{s.summary ? `${s.summary.minutes} min · ${s.summary.attendees.length} there · ${s.summary.issues_solved.length} Issue${s.summary.issues_solved.length === 1 ? "" : "s"} resolved · To-Dos ${s.summary.todos_total ? Math.round((s.summary.todos_done / s.summary.todos_total) * 100) : 0}% done` : ""}</div>
               </div>
               {s.summary?.average_rating != null && <span className="badge badge-green"><Star size={12} style={{ verticalAlign: -1 }} /> {s.summary.average_rating}</span>}
             </li>
@@ -67,7 +67,7 @@ function RecapSheet({ session, onClose }: { session: Session; onClose: () => voi
             <div className="row wrap small">{r.ratings.map((x) => <span key={x.member_id} className="badge">{byId(x.member_id)?.first_name ?? "Someone"}: {x.rating ?? "–"}</span>)}</div>
           </div>
           <div className="stack" style={{ gap: 6 }}>
-            <h3>Issues solved <span className="count">{r.issues_solved.length}</span></h3>
+            <h3>Issues resolved <span className="count">{r.issues_solved.length}</span></h3>
             {r.issues_solved.map((i) => <div key={i.id} className="row small"><Check size={14} color="var(--color-brand)" />{i.title}</div>)}
             {!r.issues_solved.length && <p className="small muted">None.</p>}
           </div>

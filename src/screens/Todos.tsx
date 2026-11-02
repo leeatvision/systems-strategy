@@ -9,7 +9,7 @@ import {
   type ChecklistItem, type RepeatRule, type Todo,
 } from "../lib/data";
 import { Comments } from "../components/Comments";
-import { DATE_OPTIONS, FilterButton, FilterPanel, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { DATE_OPTIONS, FilterButton, FilterPanel, MineToggle, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Attachments } from "../components/Attachments";
 import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } from "../components/ui";
 import { Sheet } from "../components/Sheet";
@@ -115,10 +115,7 @@ export function Todos() {
           ))}
         </span>
         <span className="spacer" />
-        <span className="seg seg-text" role="group" aria-label="Whose">
-          <button type="button" className={f.owner === "me" ? "on" : ""} aria-pressed={f.owner === "me"} onClick={() => filters.set("owner", "me")}>Mine</button>
-          <button type="button" className={f.owner === "all" ? "on" : ""} aria-pressed={f.owner === "all"} onClick={() => filters.set("owner", "all")}>Everyone</button>
-        </span>
+        <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
           { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },

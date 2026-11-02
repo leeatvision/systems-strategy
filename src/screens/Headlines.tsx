@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Check, CircleAlert, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Check, CircleAlert, Download, Plus, Printer, RotateCcw, Trash2 } from "lucide-react";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers, useOpenParam, type Headline } from "../lib/data";
 import { Comments } from "../components/Comments";
-import { FilterBar, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { downloadCsv } from "../lib/csv";
+import { fullName } from "../lib/supabase";
 import { addDays, today } from "../lib/data";
 import { Attachments } from "../components/Attachments";
-import { Avatar, Empty, OwnerSelect, Section } from "../components/ui";
+import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
 const KIND: Record<Headline["kind"], string> = { general: "General", customer: "Customer", employee: "Employee" };
@@ -23,6 +25,7 @@ export function Headlines() {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Headline["kind"]>("general");
   const [showReviewed, setShowReviewed] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<Headline | null>(null);
   const [error, setError] = useState("");
 
@@ -58,6 +61,9 @@ export function Headlines() {
   ];
   const toReview = shown.filter((h) => h.status === "to_review");
   const reviewed = shown.filter((h) => h.status === "reviewed");
+  const extra = filters.active - (f.owner !== DEFAULTS.owner ? 1 : 0);
+  const exportCsv = () => downloadCsv(`headlines-${today()}`, ["Title", "Owner", "Kind", "Status", "Added"],
+    shown.map((h) => { const o = byId(h.owner_member_id); return [h.title, o ? fullName(o) : "", KIND[h.kind], h.status === "reviewed" ? "Reviewed" : "To review", h.created_at.slice(0, 10)]; }));
   const row = (h: Headline) => (
     <li key={h.id} className="clickable" onClick={() => setEditing(h)}>
       <Avatar m={byId(h.owner_member_id)} />
@@ -75,7 +81,22 @@ export function Headlines() {
 
   return (
     <div className="stack">
-      <div className="page-head"><h1>Headlines</h1></div>
+      <div className="page-head goals-head"><h1>Headlines</h1></div>
+      <h2 className="print-only">Headlines</h2>
+      <div className="toolbar no-print">
+        <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
+        <span className="spacer" />
+        <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
+        <Menu items={[
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
+        ]} />
+      </div>
+      {showFilters && <FilterPanel fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
+        active={filters.active} shown={shown.length} total={(items ?? []).length} />}
+      {!showFilters && extra > 0 && items && (
+        <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {items.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
+      )}
       <p className="small muted">Short good or bad news about customers and people, shared at the meeting.</p>
       <form className="card card-pad stack no-print" style={{ gap: 10 }} onSubmit={add}>
         <div className="row">
@@ -89,8 +110,6 @@ export function Headlines() {
         </div>
       </form>
       {error && <p className="error">{error}</p>}
-      <FilterBar fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
-        active={filters.active} shown={shown.length} total={(items ?? []).length} />
       {items === null ? <p className="muted">Loading…</p> : <>
         <Section title="To review" count={toReview.length}>
           {toReview.length ? <ul className="card list">{toReview.map(row)}</ul> : <Empty>Nothing waiting for the next meeting.</Empty>}
@@ -98,7 +117,7 @@ export function Headlines() {
         {reviewed.length > 0 && (
           <Section title="Reviewed" count={reviewed.length}
             action={<button className="btn btn-ghost btn-sm" onClick={() => setShowReviewed(!showReviewed)}>{showReviewed ? "Hide" : "Show"}</button>}>
-            {showReviewed && <ul className="card list">{reviewed.map(row)}</ul>}
+            {(showReviewed || f.status === "reviewed") && <ul className="card list">{reviewed.map(row)}</ul>}
           </Section>
         )}
       </>}

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Check, Download, Plus, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
+import { Check, Download, Plus, Printer, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
 import { downloadCsv } from "../lib/csv";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { addDays, fmtDay, today, useMeetings, useMembers, useOpenParam, type Issue } from "../lib/data";
 import { Comments } from "../components/Comments";
-import { FilterBar, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Attachments } from "../components/Attachments";
-import { Avatar, Chips, Empty, OwnerSelect, Section } from "../components/ui";
+import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 
 const SOURCE: Record<string, string> = { goal: "From a Goal", todo: "From a To-Do", headline: "From a Headline", measurable: "From the Scorecard" };
@@ -21,6 +21,7 @@ export function Issues() {
   const filters = useFilters("issues", DEFAULTS);
   const f = filters.values;
   const [showSolved, setShowSolved] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<Issue | null>(null);
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -63,7 +64,7 @@ export function Issues() {
     && (f.source === "all" || (f.source === "none" ? !i.source_type : i.source_type === f.source)));
   const fields = [
     { key: "owner", label: "Owner", options: ownerOptions(members, me.id) },
-    { key: "status", label: "Status", options: [{ value: "all", label: "Open and solved" }, { value: "open", label: "Open" }, { value: "solved", label: "Solved" }] },
+    { key: "status", label: "Status", options: [{ value: "open", label: "Open" }, { value: "solved", label: "Resolved" }, { value: "all", label: "Open and resolved" }] },
     { key: "top", label: "Top 3", options: [{ value: "all", label: "Any" }, { value: "top", label: "Top 3 only" }, { value: "rest", label: "Not in top 3" }] },
     { key: "source", label: "Came from", options: [{ value: "all", label: "Anywhere" }, { value: "none", label: "Added directly" }, { value: "goal", label: "A Goal" },
       { value: "todo", label: "A To-Do" }, { value: "headline", label: "A Headline" }, { value: "measurable", label: "The Scorecard" }] },
@@ -71,7 +72,8 @@ export function Issues() {
   const open = list.filter((i) => i.status === "open")
     .sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9) || a.sort_order - b.sort_order);
   const solved = list.filter((i) => i.status === "solved");
-  const exportCsv = () => downloadCsv(`issues-${today()}`, ["Title", "Owner", "Status", "Top 3", "Source", "Details", "Created", "Solved"],
+  const extra = filters.active - (f.owner !== DEFAULTS.owner ? 1 : 0);
+  const exportCsv = () => downloadCsv(`issues-${today()}`, ["Title", "Owner", "Status", "Top 3", "Source", "Details", "Created", "Resolved"],
     [...open, ...solved].map((i) => {
       const o = byId(i.owner_member_id);
       return [i.title, o ? fullName(o) : "", i.status, i.priority, i.source_type, i.description, i.created_at.slice(0, 10), i.solved_at?.slice(0, 10)];
@@ -90,31 +92,38 @@ export function Issues() {
         <div className="row small muted" style={{ gap: 8, flexWrap: "wrap" }}>
           <span>{byId(i.owner_member_id)?.first_name ?? "Unassigned"}</span>
           {i.source_type && <span>{SOURCE[i.source_type]}</span>}
-          {i.status === "solved" && i.solved_at && <span>Solved {fmtDay(i.solved_at)}</span>}
+          {i.status === "solved" && i.solved_at && <span>Resolved {fmtDay(i.solved_at)}</span>}
         </div>
       </div>
       {i.status === "open"
-        ? <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Solve</button>
+        ? <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Resolved</button>
         : <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); solve(i, false); }}><RotateCcw size={16} />Reopen</button>}
     </li>
   );
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <h1>Issues</h1>
+      <div className="page-head goals-head"><h1>Issues</h1></div>
+      <h2 className="print-only">Issues</h2>
+      <div className="toolbar no-print">
+        <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost" onClick={exportCsv} aria-label="Export to CSV" title="Export to CSV"><Download size={18} /></button>
-        <Chips value={f.owner === "me" ? "me" : f.owner === "all" ? "all" : ""} onChange={(v) => filters.set("owner", v)}
-          options={[{ value: "all", label: "Everyone" }, { value: "me", label: "Mine" }]} />
+        <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
+        <Menu items={[
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
+        ]} />
       </div>
+      {showFilters && <FilterPanel fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
+        active={filters.active} shown={list.length} total={(issues ?? []).length} />}
+      {!showFilters && extra > 0 && issues && (
+        <p className="small muted no-print" style={{ margin: 0 }}>Showing {list.length} of {issues.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
+      )}
       <form className="card card-pad row no-print" onSubmit={add}>
         <input className="input" placeholder="Add an Issue…" value={title} onChange={(e) => setTitle(e.target.value)} />
         <button className="btn btn-primary btn-sm" disabled={!title.trim()} aria-label="Add Issue"><Plus size={18} /></button>
       </form>
       {error && <p className="error">{error}</p>}
-      <FilterBar fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
-        active={filters.active} shown={list.length} total={(issues ?? []).length} />
 
       {issues === null ? <p className="muted">Loading…</p> : <>
         <Section title="Open" count={open.length}>
@@ -122,9 +131,9 @@ export function Issues() {
         </Section>
         <p className="small muted">Pick the top 3 with the number on the left; those are discussed first.</p>
         {solved.length > 0 && (
-          <Section title="Solved" count={solved.length}
+          <Section title="Resolved" count={solved.length}
             action={<button className="btn btn-ghost btn-sm" onClick={() => setShowSolved(!showSolved)}>{showSolved ? "Hide" : "Show"}</button>}>
-            {showSolved && <ul className="card list">{solved.map(row)}</ul>}
+            {(showSolved || f.status === "solved") && <ul className="card list">{solved.map(row)}</ul>}
           </Section>
         )}
       </>}
