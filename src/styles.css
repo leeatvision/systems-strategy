@@ -766,3 +766,17 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
 .live-open:hover .item-title, button.item-title.live-open:hover { text-decoration: underline; text-underline-offset: 3px; }
 .live-add { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-md); }
 .made-todo { display: flex; align-items: center; gap: 6px; margin-top: 6px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-subtle); padding: 4px 8px; font: inherit; font-size: 13px; color: var(--color-fg-secondary); cursor: pointer; text-align: left; max-width: 100%; }
+
+/* Process If/Then branches */
+.step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.if-num { background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: 11px; }
+.if-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: var(--radius-sm); background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: 11px; font-weight: 700; vertical-align: 2px; }
+.branch { border-left: 3px solid var(--color-warning); padding-left: 10px; margin-top: 4px; }
+.branch-head { font-size: 13px; color: var(--color-fg-secondary); padding: 4px 0; }
+.branch-steps > li { padding-left: 0; padding-right: 0; }
+.branch-add { padding: 6px 0 4px; border-top: 0; }
+.branch-end { font-size: 12px; font-weight: 700; color: var(--color-danger); padding: 2px 0 6px; }
+.branch-join { padding-top: 2px; }
+.if-add { align-self: flex-start; color: var(--color-warning-fg); font-weight: 600; }
+.step-add { display: flex; flex-direction: column; gap: 6px; }
+.step-num { min-width: 24px; width: auto; padding: 0 6px; border-radius: 12px; }

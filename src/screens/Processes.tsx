@@ -17,7 +17,8 @@ export interface Process {
   status: "draft" | "live"; followed_by_all: number | null; reviewed_on: string | null; sort_order: number;
   deleted_at: string | null; created_at: string; updated_at: string;
 }
-interface Step { id: string; process_id: string; sort_order: number; title: string; details: string | null }
+interface Step { id: string; process_id: string; sort_order: number; title: string; details: string | null; kind: "step" | "if"; answer_id: string | null }
+interface Answer { id: string; process_id: string; step_id: string; label: string; sort_order: number; ends: boolean }
 
 const fbaClass = (n: number | null) => (n === null ? "" : n >= 90 ? "badge-green" : n >= 70 ? "badge-warn" : "badge-danger");
 
@@ -114,23 +115,24 @@ export function ProcessDetail() {
   const navigate = useNavigate();
   const [p, setP] = useState<Process | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
   const [error, setError] = useState("");
   const [historyKey, setHistoryKey] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [editStep, setEditStep] = useState<string | null>(null);
-  const [newStep, setNewStep] = useState("");
   const [open, setOpen] = useState<ProcessFold | null>(null);
   const [counts, setCounts] = useState({ files: 0, comments: 0 });
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data }, { data: s }] = await Promise.all([
+    const [{ data }, { data: s }, { data: a }] = await Promise.all([
       supabase.from("ss_processes").select("*").eq("id", id).maybeSingle(),
       supabase.from("ss_process_steps").select("*").eq("process_id", id).order("sort_order"),
+      supabase.from("ss_process_answers").select("*").eq("process_id", id).order("sort_order"),
     ]);
     if (!data) { setError("That process wasn't found."); return; }
     setP(data as Process);
     setSteps((s ?? []) as Step[]);
+    setAnswers((a ?? []) as Answer[]);
     setHistoryKey((k) => k + 1);
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -148,21 +150,6 @@ export function ProcessDetail() {
     return error ? friendlyError(error) : "";
   };
   const patch = (change: Partial<Process>) => (p ? run(supabase.from("ss_processes").update(change).eq("id", p.id)) : Promise.resolve(""));
-  const patchStep = (s: Step, change: Partial<Step>) => run(supabase.from("ss_process_steps").update(change).eq("id", s.id));
-  const addStep = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!p || !newStep.trim()) return;
-    await run(supabase.from("ss_process_steps").insert({
-      company_id: company.id, process_id: p.id, sort_order: (steps.at(-1)?.sort_order ?? 0) + 1, title: newStep.trim(),
-    }));
-    setNewStep("");
-  };
-  const move = async (i: number, by: number) => {
-    const a = steps[i], b = steps[i + by];
-    if (!a || !b) return;
-    await supabase.from("ss_process_steps").update({ sort_order: b.sort_order }).eq("id", a.id);
-    run(supabase.from("ss_process_steps").update({ sort_order: a.sort_order }).eq("id", b.id));
-  };
   const toBin = async () => {
     if (!p || !confirm("Move this process to the recycle bin?")) return;
     await supabase.from("ss_processes").update({ deleted_at: new Date().toISOString() }).eq("id", p.id);
@@ -203,44 +190,10 @@ export function ProcessDetail() {
       {error && <p className="error">{error}</p>}
 
       <section className="stack" style={{ gap: 8 }}>
-        <h2 className="steps-head">Steps{steps.length > 0 && <span className="count">{steps.length}</span>}</h2>
+        <h2 className="steps-head">Steps{steps.length > 0 && <span className="count">{steps.filter((x) => !x.answer_id).length}</span>}</h2>
         <div className="card">
-          {steps.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>Write the major steps, in order. Keep each one short; put the how-to in its details.</p>}
-          <ol className="list steps process-list">
-            {steps.map((s, i) => editStep === s.id ? (
-              <li key={s.id} className="step-editing">
-                <span className="step-num">{i + 1}</span>
-                <div className="step-fields">
-                  <input className="input" placeholder="Step" defaultValue={s.title} autoFocus style={{ fontWeight: 600 }}
-                    onBlur={(e) => e.target.value.trim() !== s.title && patchStep(s, { title: e.target.value.trim() })} />
-                  <textarea className="input textarea" rows={3} placeholder="Details: who, how, checklists, links…" defaultValue={s.details ?? ""}
-                    onBlur={(e) => (e.target.value.trim() || null) !== s.details && patchStep(s, { details: e.target.value.trim() || null })} />
-                  <div className="row" style={{ gap: 4 }}>
-                    <button className="btn btn-ghost btn-sm" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-                    <button className="btn btn-ghost btn-sm" aria-label="Move down" disabled={i === steps.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
-                    <button className="btn btn-ghost btn-sm btn-danger" aria-label="Remove step"
-                      onClick={() => { if (confirm("Remove this step?")) { setEditStep(null); run(supabase.from("ss_process_steps").delete().eq("id", s.id)); } }}><Trash2 size={16} /></button>
-                    <span className="spacer" />
-                    <button className="btn btn-sm" onClick={() => setEditStep(null)}>Done</button>
-                  </div>
-                </div>
-              </li>
-            ) : (
-              <li key={s.id}>
-                <span className="step-num">{i + 1}</span>
-                <button type="button" className="step-view" onClick={() => setEditStep(s.id)} aria-label={`Edit step: ${s.title || "untitled"}`}>
-                  <span className="step-text" style={{ fontWeight: 600 }}>{s.title || <span className="muted">Untitled step</span>}</span>
-                  {s.details && <span className="small muted step-details">{s.details}</span>}
-                </button>
-              </li>
-            ))}
-          </ol>
-          <form className="step-add no-print" onSubmit={addStep}>
-            <div className="row" style={{ gap: 8 }}>
-              <input className="input" placeholder="Add a step…" value={newStep} onChange={(e) => setNewStep(e.target.value)} aria-label="New step" />
-              <button className="btn btn-sm btn-primary" disabled={!newStep.trim()}><Plus size={16} />Add</button>
-            </div>
-          </form>
+          {steps.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>Write the major steps, in order. Keep each one short; put the how-to in its details. Where it depends, add an If/Then Step.</p>}
+          <StepList ctx={{ steps, answers, companyId: company.id, processId: p.id, run, reload: load }} answerId={null} prefix="" />
         </div>
       </section>
 
@@ -311,5 +264,137 @@ function ProcessSheet({ p, onClose, onSave }: { p: Process; onClose: () => void;
         <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Save"}</button>
       </form>
     </Sheet>
+  );
+}
+
+
+// ─── Steps, with If/Then branches ───────────────────────────────────────────
+// An If/Then Step asks a question; each answer holds its own steps (which can branch again).
+// After the answers the process carries on with the next shared step, unless an answer ends it.
+
+interface StepCtx {
+  steps: Step[]; answers: Answer[]; companyId: string; processId: string;
+  run: (q: PromiseLike<{ error: unknown }>) => Promise<string>; reload: () => void;
+}
+const LETTERS = "abcdefghijklmnopqrstuvwxyz";
+
+function StepList({ ctx, answerId, prefix, ends }: { ctx: StepCtx; answerId: string | null; prefix: string; ends?: boolean }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(!answerId);
+  const list = ctx.steps.filter((x) => (x.answer_id ?? null) === answerId).sort((a, b) => a.sort_order - b.sort_order);
+  const num = (i: number) => (prefix ? `${prefix}${prefix.match(/\d$/) ? LETTERS[i] ?? i + 1 : `.${i + 1}`}` : String(i + 1));
+  const nextOrder = (list.at(-1)?.sort_order ?? 0) + 1;
+
+  const add = async (kind: "step" | "if") => {
+    const title = kind === "step" ? draft.trim() : "";
+    if (kind === "step" && !title) return;
+    const { data, error } = await supabase.from("ss_process_steps").insert({
+      company_id: ctx.companyId, process_id: ctx.processId, sort_order: nextOrder, title, kind, answer_id: answerId,
+    }).select("id").single();
+    if (error) { await ctx.run(Promise.resolve({ error })); return; }
+    if (kind === "if") {
+      await supabase.from("ss_process_answers").insert(["Yes", "No"].map((label, i) => ({
+        company_id: ctx.companyId, process_id: ctx.processId, step_id: data.id, label, sort_order: i,
+      })));
+      setEditing(data.id);
+    }
+    setDraft("");
+    ctx.reload();
+  };
+  const move = async (i: number, by: number) => {
+    const a = list[i], b = list[i + by];
+    if (!a || !b) return;
+    await supabase.from("ss_process_steps").update({ sort_order: b.sort_order }).eq("id", a.id);
+    ctx.run(supabase.from("ss_process_steps").update({ sort_order: a.sort_order === b.sort_order ? b.sort_order + 1 : a.sort_order }).eq("id", b.id));
+  };
+  const patch = (st: Step, change: Partial<Step>) => ctx.run(supabase.from("ss_process_steps").update(change).eq("id", st.id));
+  const remove = (st: Step) => {
+    const msg = st.kind === "if" ? "Remove this If/Then Step and the steps under its answers?" : "Remove this step?";
+    if (confirm(msg)) { setEditing(null); ctx.run(supabase.from("ss_process_steps").delete().eq("id", st.id)); }
+  };
+
+  return (
+    <>
+      <ol className={`list steps process-list${answerId ? " branch-steps" : ""}`}>
+        {list.map((st, i) => {
+          const n = num(i);
+          const isIf = st.kind === "if";
+          const stepAnswers = ctx.answers.filter((a) => a.step_id === st.id).sort((a, b) => a.sort_order - b.sort_order);
+          return (
+            <li key={st.id} className={`${editing === st.id ? "step-editing " : ""}${isIf ? "if-step" : ""}`}>
+              <span className={`step-num${isIf ? " if-num" : ""}`} title={isIf ? "If/Then Step" : undefined}>{isIf ? `◆ ${n}` : n}</span>
+              <div className="step-body">
+                {editing === st.id ? (
+                  <div className="step-fields">
+                    <input className="input" placeholder={isIf ? "Question, e.g. Is the job over $10k?" : "Step"} defaultValue={st.title} autoFocus style={{ fontWeight: 600 }}
+                      onBlur={(e) => e.target.value.trim() !== st.title && patch(st, { title: e.target.value.trim() })} />
+                    <textarea className="input textarea" rows={2} placeholder={isIf ? "Details (optional)" : "Details: who, how, checklists, links…"} defaultValue={st.details ?? ""}
+                      onBlur={(e) => (e.target.value.trim() || null) !== st.details && patch(st, { details: e.target.value.trim() || null })} />
+                    {isIf && (
+                      <div className="stack" style={{ gap: 6 }}>
+                        <span className="small" style={{ fontWeight: 600 }}>Answers</span>
+                        {stepAnswers.map((a) => (
+                          <div key={a.id} className="row" style={{ gap: 6 }}>
+                            <input className="input" defaultValue={a.label} aria-label="Answer" placeholder="Answer, e.g. Yes"
+                              onBlur={(e) => e.target.value.trim() !== a.label && ctx.run(supabase.from("ss_process_answers").update({ label: e.target.value.trim() }).eq("id", a.id))} />
+                            <label className="row small nowrap" style={{ gap: 4 }}>
+                              <input type="checkbox" checked={a.ends} onChange={(e) => ctx.run(supabase.from("ss_process_answers").update({ ends: e.target.checked }).eq("id", a.id))} />End
+                            </label>
+                            <button className="btn btn-ghost btn-sm" aria-label="Remove answer" disabled={stepAnswers.length <= 1}
+                              onClick={() => confirm("Remove this answer and its steps?") && ctx.run(supabase.from("ss_process_answers").delete().eq("id", a.id))}><Trash2 size={16} /></button>
+                          </div>
+                        ))}
+                        <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => ctx.run(supabase.from("ss_process_answers").insert({
+                          company_id: ctx.companyId, process_id: ctx.processId, step_id: st.id, label: "", sort_order: (stepAnswers.at(-1)?.sort_order ?? 0) + 1 }))}>
+                          <Plus size={14} />Add an answer</button>
+                        <p className="small muted" style={{ margin: 0 }}>Tick End when that answer finishes the process; otherwise it carries on with the next shared step.</p>
+                      </div>
+                    )}
+                    <div className="row" style={{ gap: 4 }}>
+                      <button className="btn btn-ghost btn-sm" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
+                      <button className="btn btn-ghost btn-sm" aria-label="Move down" disabled={i === list.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
+                      <button className="btn btn-ghost btn-sm btn-danger" aria-label="Remove step" onClick={() => remove(st)}><Trash2 size={16} /></button>
+                      <span className="spacer" />
+                      <button className="btn btn-sm" onClick={() => setEditing(null)}>Done</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="step-view" onClick={() => setEditing(st.id)} aria-label={`Edit step: ${st.title || "untitled"}`}>
+                    <span className="step-text" style={{ fontWeight: 600 }}>
+                      {isIf && <span className="if-tag">If/Then</span>}
+                      {st.title || <span className="muted">{isIf ? "Question not written yet" : "Untitled step"}</span>}
+                    </span>
+                    {st.details && <span className="small muted step-details">{st.details}</span>}
+                  </button>
+                )}
+                {isIf && stepAnswers.map((a, ai) => (
+                  <div key={a.id} className="branch">
+                    <div className="branch-head">If <strong>{a.label || "…"}</strong>:</div>
+                    <StepList ctx={ctx} answerId={a.id} prefix={`${n}${LETTERS[ai] ?? ""}`} ends={a.ends} />
+                  </div>
+                ))}
+                {isIf && i < list.length - 1 && stepAnswers.some((a) => !a.ends) && (
+                  <div className="small muted branch-join">Then carry on with step {num(i + 1)}</div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {ends && <div className="branch-end">End of the process</div>}
+      <form className={`step-add no-print${answerId ? " branch-add" : ""}`} onSubmit={(e) => { e.preventDefault(); add("step"); }}>
+        {adding ? (
+          <div className="row" style={{ gap: 8 }}>
+            <input className="input" placeholder="Add a step…" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="New step" autoFocus={!!answerId} />
+            <button className="btn btn-sm btn-primary" disabled={!draft.trim()}><Plus size={16} />Add</button>
+          </div>
+        ) : null}
+        <div className="row" style={{ gap: 14 }}>
+          {!adding && <button type="button" className="link-btn if-add" style={{ color: "var(--color-brand-hover)" }} onClick={() => setAdding(true)}><Plus size={13} style={{ verticalAlign: -2 }} /> Add a step</button>}
+          <button type="button" className="link-btn if-add" onClick={() => add("if")}>◆ Add an If/Then Step</button>
+        </div>
+      </form>
+    </>
   );
 }
