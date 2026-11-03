@@ -5,7 +5,7 @@ import { useMe } from "../lib/session";
 import { fmtDateTime, useMembers } from "../lib/data";
 import { Avatar } from "./ui";
 
-export type ItemType = "goal" | "todo" | "issue" | "headline" | "process";
+export type ItemType = "goal" | "todo" | "issue" | "headline" | "process" | "plan";
 
 interface Comment {
   id: string;

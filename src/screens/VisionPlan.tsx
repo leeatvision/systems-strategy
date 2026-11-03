@@ -6,6 +6,7 @@ import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal } from "../lib/data";
 import { Empty, Fold, Menu } from "../components/ui";
+import { Attachments } from "../components/Attachments";
 
 interface Version {
   id: string; company_id: string; title: string; status: "draft" | "official" | "archived";
@@ -66,6 +67,7 @@ export function VisionPlan() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Set<string>>(new Set());
+  const [fileCount, setFileCount] = useState(0);
   // Printing shows every section, as text.
   useEffect(() => {
     const before = () => flushSync(() => { setOpen(new Set(SECTIONS)); setEditing(new Set()); });
@@ -92,6 +94,12 @@ export function VisionPlan() {
   }, []);
 
   const v = versions?.find((x) => x.id === current) ?? null;
+  // How many files this version has, so the Files section shows its count while closed.
+  useEffect(() => {
+    if (!current) { setFileCount(0); return; }
+    supabase.from("ss_attachments").select("id", { count: "exact", head: true }).eq("item_type", "plan").eq("item_id", current)
+      .then(({ count }) => setFileCount(count ?? 0));
+  }, [current]);
   const run = async (p: PromiseLike<{ error: unknown }>, reloadTo?: string) => {
     const { error } = await p;
     if (error) setError(friendlyError(error)); else { setError(""); load(reloadTo); }
@@ -231,6 +239,14 @@ export function VisionPlan() {
             render={(i) => <><Link to={`/issues?open=${i.id}`}>{i.title}</Link> <span className="small muted">· {byId(i.owner_member_id)?.first_name ?? "Unassigned"}</span></>} />
         </PlanFold>
       </div>
+      {(v.status !== "official" || fileCount > 0) && (
+        <div className="card folds no-print">
+          <Fold title="Files" count={fileCount} open={open.has("files")} onToggle={() => setOpen((o) => { const n = new Set(o); if (n.has("files")) n.delete("files"); else n.add("files"); return n; })}>
+            <Attachments itemType="plan" itemId={v.id} bare onCount={setFileCount} readOnly={v.status === "official"}
+              note={v.status === "official" ? "Added while this was a draft." : "Notes, drafts and references for this version."} />
+          </Fold>
+        </div>
+      )}
       {v.status === "official" && <p className="small muted no-print">Edits here change the official Vision and Plan directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
       {!isOwner && <p className="small muted no-print">Only owners can delete Vision and Plan versions permanently; drafts can be archived by anyone.</p>}
     </div>

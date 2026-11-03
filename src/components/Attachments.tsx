@@ -12,8 +12,8 @@ interface Attachment { id: string; storage_path: string; file_name: string; size
 
 const size = (n: number | null) => (n === null ? "" : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
-/** Files on a Goal, To-Do, Issue or Headline. Private: opened through short-lived links. */
-export function Attachments({ itemType, itemId, bare, onCount }: { itemType: ItemType; itemId: string; bare?: boolean; onCount?: (n: number) => void }) {
+/** Files on a Goal, To-Do, Issue, Headline, Process or Vision and Plan version. Private: opened through short-lived links. */
+export function Attachments({ itemType, itemId, bare, onCount, readOnly, note }: { itemType: ItemType; itemId: string; bare?: boolean; onCount?: (n: number) => void; readOnly?: boolean; note?: string }) {
   const { me, company, isOwner } = useMe();
   const [files, setFiles] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
@@ -69,11 +69,14 @@ export function Attachments({ itemType, itemId, bare, onCount }: { itemType: Ite
     <div className="stack" style={{ gap: 8 }}>
       <div className="row">
         {!bare && <h3>Files{files.length > 0 && <span className="count">{files.length}</span>}</h3>}
+        {note && <span className="small muted">{note}</span>}
         <span className="spacer" />
-        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => input.current?.click()}>
-          <Upload size={16} />{busy ? "Uploading…" : "Add file"}
-        </button>
-        <input ref={input} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
+        {!readOnly && <>
+          <button type="button" className="btn btn-sm" disabled={busy} onClick={() => input.current?.click()}>
+            <Upload size={16} />{busy ? "Uploading…" : "Add file"}
+          </button>
+          <input ref={input} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
+        </>}
       </div>
       {files.map((a) => (
         <div key={a.id} className="row" style={{ gap: 8 }}>
@@ -81,7 +84,7 @@ export function Attachments({ itemType, itemId, bare, onCount }: { itemType: Ite
           <button type="button" className="link-btn file-link" onClick={() => open(a)}>{a.file_name}</button>
           <span className="small muted">{size(a.size_bytes)} · {fmtDay(a.created_at)}</span>
           <span className="spacer" />
-          {isOwner && <button type="button" className="link-btn" aria-label={`Delete ${a.file_name}`} onClick={() => remove(a)}><Trash2 size={14} /></button>}
+          {isOwner && !readOnly && <button type="button" className="link-btn" aria-label={`Delete ${a.file_name}`} onClick={() => remove(a)}><Trash2 size={14} /></button>}
         </div>
       ))}
       {error && <p className="error">{error}</p>}
