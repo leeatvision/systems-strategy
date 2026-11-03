@@ -50,7 +50,7 @@ export function Shell() {
         <button className="side-link btn-ghost" style={{ border: 0, background: "none", cursor: "pointer", textAlign: "left" }} onClick={signOut}>
           <LogOut size={18} />Sign out
         </button>
-        <div className="small" style={{ padding: "12px 12px 0", color: "var(--gray-500)" }}>{company.name}</div>
+        <div className="small" style={{ padding: "12px 12px 0", color: "#8c9090" }}>{company.name}</div>
       </aside>
 
       <header className="topbar">

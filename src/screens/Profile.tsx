@@ -3,11 +3,13 @@ import { friendlyError, supabase } from "../lib/supabase";
 import { useMe, useSession } from "../lib/session";
 import { CalendarLink } from "../components/CalendarLink";
 import { Link } from "react-router-dom";
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell, ChevronRight, Monitor, Moon, Sun } from "lucide-react";
+import { useTheme, type Theme } from "../lib/theme";
 
 export function Profile() {
   const { me } = useMe();
   const { refresh, signOut } = useSession();
+  const [theme, setTheme] = useTheme();
   const [form, setForm] = useState({ first_name: me.first_name, last_name: me.last_name, job_title: me.job_title ?? "" });
   const [pin, setPin] = useState({ a: "", b: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -50,6 +52,17 @@ export function Profile() {
         </div>
         <button className="btn">Change PIN</button>
       </form>
+      <div className="card card-pad stack" style={{ gap: 10 }}>
+        <h2>Appearance</h2>
+        <div className="seg seg-text seg-wide" role="radiogroup" aria-label="Appearance">
+          {([["system", "System", Monitor], ["light", "Light", Sun], ["dark", "Dark", Moon]] as [Theme, string, typeof Sun][]).map(([v, label, Icon]) => (
+            <button key={v} type="button" role="radio" aria-checked={theme === v} className={theme === v ? "on" : ""} onClick={() => setTheme(v)}>
+              <Icon size={16} />{label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>System follows your phone or computer's light or dark setting. Saved on this device.</p>
+      </div>
       <Link to="/settings/notifications" className="card card-pad row" style={{ color: "inherit" }}>
         <Bell size={20} color="var(--color-brand)" /><span style={{ flex: 1 }}><strong style={{ color: "var(--color-fg)" }}>Notification settings</strong>
           <span className="small muted" style={{ display: "block" }}>Push to this phone, daily reminder, what to be told about</span></span><ChevronRight size={18} />
