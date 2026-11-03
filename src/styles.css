@@ -760,3 +760,9 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
 @media screen { :root[data-theme="dark"] .topbar img { background: #fff; border-radius: var(--radius-md); padding: 2px; } }
 .seg-wide { display: flex; align-self: stretch; }
 .seg-wide button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; }
+
+/* Live meeting: items open in place; add with an owner */
+.live-open { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; display: block; min-width: 0; }
+.live-open:hover .item-title, button.item-title.live-open:hover { text-decoration: underline; text-underline-offset: 3px; }
+.live-add { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-md); }
+.made-todo { display: flex; align-items: center; gap: 6px; margin-top: 6px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-subtle); padding: 4px 8px; font: inherit; font-size: 13px; color: var(--color-fg-secondary); cursor: pointer; text-align: left; max-width: 100%; }

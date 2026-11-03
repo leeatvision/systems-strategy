@@ -12,6 +12,11 @@ import {
   mmss, type AgendaItem, type Attendee, type MeetingRow, type Recap, type Session, type SessionAgenda, type SessionEvent,
 } from "../lib/meetings";
 import { Avatar, Empty, OwnerSelect, Tick } from "../components/ui";
+import { Sheet } from "../components/Sheet";
+import { GoalDetail } from "./GoalDetail";
+import { TodoSheet } from "./Todos";
+import { IssueSheet } from "./Issues";
+import { HeadlineSheet } from "./Headlines";
 
 const nowIso = () => new Date().toISOString();
 
@@ -352,12 +357,14 @@ function ScorecardReview({ p }: { p: SectionProps }) {
 
 function GoalReview({ p }: { p: SectionProps }) {
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [opened, setOpened] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const q = currentQuarter();
   useEffect(() => {
     supabase.from("ss_goals").select("*").eq("meeting_id", p.meeting.id).eq("is_live", true).is("deleted_at", null).is("archived_at", null)
       .or(`and(quarter.eq.${q.quarter},quarter_year.eq.${q.year}),quarter.is.null`).order("owner_member_id")
       .then(({ data }) => setGoals((data ?? []) as Goal[]));
-  }, [p.meeting.id, p.tick, q.quarter, q.year]);
+  }, [p.meeting.id, p.tick, q.quarter, q.year, reload]);
   const set = async (r: Goal, status: Goal["status"]) => {
     setGoals((l) => l?.map((x) => (x.id === r.id ? { ...x, status } : x)) ?? null);
     await supabase.from("ss_goals").update({ status }).eq("id", r.id);
@@ -372,7 +379,7 @@ function GoalReview({ p }: { p: SectionProps }) {
         {goals.map((r) => (
           <li key={r.id} style={{ flexWrap: "wrap" }}>
             <Avatar m={p.byId(r.owner_member_id)} />
-            <Link to={`/goals/${r.id}`} className="item-title" style={{ flex: "1 1 200px" }}>{r.title}</Link>
+            <button type="button" className="item-title live-open" style={{ flex: "1 1 200px" }} onClick={() => setOpened(r.id)}>{r.title}</button>
             <div className="chips">
               {(["on_track", "off_track", "done"] as const).map((s) => (
                 <button key={s} className={`chip${r.status === s ? (s === "off_track" ? " chip-off" : " chip-on") : ""}`} onClick={() => set(r, s)}>{GOAL_STATUS[s].label}</button>
@@ -382,28 +389,34 @@ function GoalReview({ p }: { p: SectionProps }) {
           </li>
         ))}
       </ul>
+      {opened && (
+        <Sheet title="Goal" onClose={() => { setOpened(null); setReload((n) => n + 1); }}>
+          <GoalDetail goalId={opened} onClose={() => setOpened(null)} onChanged={() => setReload((n) => n + 1)} />
+        </Sheet>
+      )}
     </div>
   );
 }
 
 function HeadlineReview({ p }: { p: SectionProps }) {
   const [items, setItems] = useState<Headline[] | null>(null);
-  const [title, setTitle] = useState("");
+  const [opened, setOpened] = useState<Headline | null>(null);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     supabase.from("ss_headlines").select("*").eq("meeting_id", p.meeting.id).is("deleted_at", null).is("archived_at", null)
       .or(`status.eq.to_review,updated_at.gte."${p.session.started_at}"`).order("created_at")
       .then(({ data }) => setItems((data ?? []) as Headline[]));
-  }, [p.meeting.id, p.tick, p.session.started_at]);
+  }, [p.meeting.id, p.tick, p.session.started_at, reload]);
   const review = async (h: Headline, reviewed: boolean) => {
     setItems((l) => l?.map((x) => (x.id === h.id ? { ...x, status: reviewed ? "reviewed" : "to_review" } : x)) ?? null);
     await supabase.from("ss_headlines").update({ status: reviewed ? "reviewed" : "to_review" }).eq("id", h.id);
     if (reviewed) p.logEvent("headline", h.id, "reviewed");
   };
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    const { error } = await supabase.from("ss_headlines").insert({ company_id: p.companyId, meeting_id: p.meeting.id, owner_member_id: p.me.id, title: title.trim(), created_by: p.me.id });
-    if (error) p.onError(friendlyError(error)); else setTitle("");
+  const add = async (title: string, owner: string | null) => {
+    const { error } = await supabase.from("ss_headlines").insert({ company_id: p.companyId, meeting_id: p.meeting.id, owner_member_id: owner, title, created_by: p.me.id });
+    if (error) { p.onError(friendlyError(error)); return false; }
+    setReload((n) => n + 1);
+    return true;
   };
   if (!items) return <p className="muted">Loading…</p>;
   return (
@@ -414,7 +427,7 @@ function HeadlineReview({ p }: { p: SectionProps }) {
           {items.map((h) => (
             <li key={h.id} style={{ flexWrap: "wrap" }}>
               <Avatar m={p.byId(h.owner_member_id)} />
-              <span className={`item-title${h.status === "reviewed" ? " struck" : ""}`} style={{ flex: "1 1 200px" }}>{h.title}</span>
+              <button type="button" className={`item-title live-open${h.status === "reviewed" ? " struck" : ""}`} style={{ flex: "1 1 200px" }} onClick={() => setOpened(h)}>{h.title}</button>
               {h.status === "to_review"
                 ? <button className="btn btn-sm" onClick={() => review(h, true)}><Check size={14} />Reviewed</button>
                 : <button className="btn btn-sm btn-ghost" aria-label="Undo" onClick={() => review(h, false)}><RotateCcw size={14} /></button>}
@@ -423,21 +436,31 @@ function HeadlineReview({ p }: { p: SectionProps }) {
           ))}
         </ul>
       ) : <Empty>No Headlines this week.</Empty>}
-      <form className="row" onSubmit={add}>
-        <input className="input" placeholder="Add a Headline…" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn btn-sm" disabled={!title.trim()}><Plus size={16} /></button>
-      </form>
+      <LiveAdd p={p} placeholder="Add a Headline…" onAdd={(t, o) => add(t, o)} />
+      {opened && <HeadlineSheet h={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
+        onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />}
     </div>
   );
 }
 
 function TodoReview({ p }: { p: SectionProps }) {
   const [todos, setTodos] = useState<Todo[] | null>(null);
+  const [opened, setOpened] = useState<Todo | null>(null);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
+    // Due within a week, plus any added during this meeting (so they can be opened and changed).
     supabase.from("ss_todos").select("*").eq("meeting_id", p.meeting.id).eq("is_personal", false).is("deleted_at", null).is("archived_at", null)
-      .lte("due_date", addDays(today(), 7)).order("owner_member_id").order("due_date")
+      .or(`due_date.lte.${addDays(today(), 7)},created_in_session_id.eq.${p.session.id}`).order("owner_member_id").order("due_date")
       .then(({ data }) => setTodos((data ?? []) as Todo[]));
-  }, [p.meeting.id, p.tick]);
+  }, [p.meeting.id, p.session.id, p.tick, reload]);
+  const add = async (title: string, owner: string | null, due?: string) => {
+    const { data, error } = await supabase.from("ss_todos").insert({ company_id: p.companyId, meeting_id: p.meeting.id, owner_member_id: owner ?? p.me.id,
+      title, due_date: due ?? addDays(today(), 7), created_in_session_id: p.session.id, created_by: p.me.id }).select("id").single();
+    if (error) { p.onError(friendlyError(error)); return false; }
+    p.logEvent("todo", data.id, "added");
+    setReload((n) => n + 1);
+    return true;
+  };
   const toggle = async (t: Todo) => {
     const done = t.status !== "done";
     setTodos((l) => l?.map((x) => (x.id === t.id ? { ...x, status: done ? "done" : "open" } : x)) ?? null);
@@ -445,8 +468,9 @@ function TodoReview({ p }: { p: SectionProps }) {
     if (done) p.logEvent("todo", t.id, "done");
   };
   if (!todos) return <p className="muted">Loading…</p>;
-  if (!todos.length) return <Empty>No To-Dos due on this meeting.</Empty>;
   const done = todos.filter((t) => t.status === "done").length;
+  const sheet = opened && <TodoSheet todo={opened} onClose={() => setOpened(null)} onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />;
+  if (!todos.length) return <div className="stack"><Empty>No To-Dos due on this meeting.</Empty><LiveAdd p={p} placeholder="Add a To-Do…" withDue onAdd={add} />{sheet}</div>;
   return (
     <div className="stack">
       <div className="row">
@@ -457,27 +481,34 @@ function TodoReview({ p }: { p: SectionProps }) {
         {todos.map((t) => (
           <li key={t.id} style={{ flexWrap: "wrap" }}>
             <Tick done={t.status === "done"} label={t.status === "done" ? "Not done" : "Done"} onToggle={() => toggle(t)} />
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+            <button type="button" className="live-open" style={{ flex: "1 1 200px", minWidth: 0 }} onClick={() => setOpened(t)}>
               <div className={`item-title${t.status === "done" ? " struck" : ""}`}>{t.title}</div>
-              <div className={`small ${t.status === "open" && t.due_date < today() ? "overdue" : "muted"}`}>{p.byId(t.owner_member_id)?.first_name} · due {fmtDay(t.due_date)}</div>
-            </div>
+              <div className={`small ${t.status === "open" && t.due_date < today() ? "overdue" : "muted"}`}>{p.byId(t.owner_member_id)?.first_name} · due {fmtDay(t.due_date)}{t.created_in_session_id === p.session.id ? " · new" : ""}</div>
+            </button>
             {t.status === "open" && <button className="btn btn-sm" onClick={() => dropToIssues(p, t.title, t.owner_member_id, { type: "todo", id: t.id }, t.description)}><CircleAlert size={14} />Issue</button>}
           </li>
         ))}
       </ul>
+      <LiveAdd p={p} placeholder="Add a To-Do…" withDue onAdd={add} />
+      {sheet}
     </div>
   );
 }
 
 function DiscussSolve({ p }: { p: SectionProps }) {
   const [issues, setIssues] = useState<Issue[] | null>(null);
-  const [title, setTitle] = useState("");
+  const [opened, setOpened] = useState<Issue | null>(null);
+  const [openTodo, setOpenTodo] = useState<Todo | null>(null);
+  const [made, setMade] = useState<Todo[]>([]);
   const [todoFor, setTodoFor] = useState<{ issue: Issue; title: string; owner: string | null; due: string } | null>(null);
   const load = useCallback(() => {
     supabase.from("ss_issues").select("*").eq("meeting_id", p.meeting.id).is("deleted_at", null).is("archived_at", null)
       .or(`status.eq.open,solved_at.gte."${p.session.started_at}"`).order("sort_order").order("created_at")
       .then(({ data }) => setIssues((data ?? []) as Issue[]));
-  }, [p.meeting.id, p.session.started_at]);
+    // To-Dos made from Issues in this meeting, shown under their Issue so they can be opened and changed.
+    supabase.from("ss_todos").select("*").eq("created_in_session_id", p.session.id).eq("source_type", "issue").is("deleted_at", null).order("created_at")
+      .then(({ data }) => setMade((data ?? []) as Todo[]));
+  }, [p.meeting.id, p.session.started_at, p.session.id]);
   useEffect(() => { load(); }, [load, p.tick]);
 
   const setPriority = async (i: Issue, n: number | null) => {
@@ -491,14 +522,13 @@ function DiscussSolve({ p }: { p: SectionProps }) {
     if (solved) p.logEvent("issue", i.id, "solved");
     load();
   };
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    const { data, error } = await supabase.from("ss_issues").insert({ company_id: p.companyId, meeting_id: p.meeting.id, owner_member_id: p.me.id,
-      title: title.trim(), created_by: p.me.id, created_in_session_id: p.session.id, sort_order: (issues?.length ?? 0) + 1 }).select("id").single();
-    if (error) { p.onError(friendlyError(error)); return; }
+  const add = async (title: string, owner: string | null) => {
+    const { data, error } = await supabase.from("ss_issues").insert({ company_id: p.companyId, meeting_id: p.meeting.id, owner_member_id: owner,
+      title, created_by: p.me.id, created_in_session_id: p.session.id, sort_order: (issues?.length ?? 0) + 1 }).select("id").single();
+    if (error) { p.onError(friendlyError(error)); return false; }
     p.logEvent("issue", data.id, "added");
-    setTitle(""); load();
+    load();
+    return true;
   };
   const makeTodo = async (e: FormEvent) => {
     e.preventDefault();
@@ -508,6 +538,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
     if (error) { p.onError(friendlyError(error)); return; }
     p.logEvent("todo", data.id, "added");
     setTodoFor({ ...todoFor, title: "" });
+    load();
   };
 
   if (!issues) return <p className="muted">Loading…</p>;
@@ -523,9 +554,16 @@ function DiscussSolve({ p }: { p: SectionProps }) {
               <option value="">–</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
             </select>
             <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-              <div className="item-title">{i.title}</div>
-              <div className="small muted">{p.byId(i.owner_member_id)?.first_name ?? "Unassigned"}</div>
-              {i.description && <p className="small" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{i.description}</p>}
+              <button type="button" className="live-open" onClick={() => setOpened(i)}>
+                <div className="item-title">{i.title}</div>
+                <div className="small muted">{p.byId(i.owner_member_id)?.first_name ?? "Unassigned"}</div>
+                {i.description && <p className="small" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{i.description}</p>}
+              </button>
+              {made.filter((t) => t.source_id === i.id).map((t) => (
+                <button key={t.id} type="button" className="made-todo" onClick={() => setOpenTodo(t)}>
+                  <SquareCheck size={13} />{t.title} · {p.byId(t.owner_member_id)?.first_name ?? "?"} · {fmtDay(t.due_date)}
+                </button>
+              ))}
               {todoFor?.issue.id === i.id && (
                 <form className="todo-inline" onSubmit={makeTodo}>
                   <input className="input" placeholder="New To-Do" autoFocus value={todoFor.title} onChange={(e) => setTodoFor({ ...todoFor, title: e.target.value })} />
@@ -546,10 +584,10 @@ function DiscussSolve({ p }: { p: SectionProps }) {
         ))}
       </ul>
       {!open.length && <Empty>No open Issues. Well done.</Empty>}
-      <form className="row" onSubmit={add}>
-        <input className="input" placeholder="Add an Issue…" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn btn-sm" disabled={!title.trim()}><Plus size={16} /></button>
-      </form>
+      <LiveAdd p={p} placeholder="Add an Issue…" onAdd={add} />
+      {opened && <IssueSheet issue={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
+        onSaved={() => { setOpened(null); load(); }} onChanged={load} />}
+      {openTodo && <TodoSheet todo={openTodo} onClose={() => setOpenTodo(null)} onSaved={() => { setOpenTodo(null); load(); }} onChanged={load} />}
       {solvedNow.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
           <h3>Resolved this meeting <span className="count">{solvedNow.length}</span></h3>
@@ -560,6 +598,32 @@ function DiscussSolve({ p }: { p: SectionProps }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Add an item during the meeting with its owner (and due date) set right away. */
+function LiveAdd({ p, placeholder, withDue, onAdd }: {
+  p: SectionProps; placeholder: string; withDue?: boolean; onAdd: (title: string, owner: string | null, due?: string) => Promise<boolean>;
+}) {
+  const [title, setTitle] = useState("");
+  const [owner, setOwner] = useState<string | null>(p.me.id);
+  const [due, setDue] = useState(addDays(today(), 7));
+  const [busy, setBusy] = useState(false);
+  return (
+    <form className="live-add" onSubmit={async (e) => {
+      e.preventDefault();
+      if (!title.trim()) return;
+      setBusy(true);
+      if (await onAdd(title.trim(), owner, withDue ? due : undefined)) setTitle("");
+      setBusy(false);
+    }}>
+      <input className="input" placeholder={placeholder} value={title} onChange={(e) => setTitle(e.target.value)} aria-label={placeholder} />
+      <div className="row" style={{ gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><OwnerSelect members={p.members.filter((m) => m.status === "active")} value={owner} onChange={setOwner} /></div>
+        {withDue && <input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value || due)} aria-label="Due" style={{ width: 160, flex: "none" }} />}
+        <button className="btn btn-primary btn-sm" disabled={busy || !title.trim()}><Plus size={16} />Add</button>
+      </div>
+    </form>
   );
 }
 

@@ -141,7 +141,7 @@ export function Issues() {
   );
 }
 
-function IssueSheet({ issue: start, members, onClose, onSaved, onChanged }: {
+export function IssueSheet({ issue: start, members, onClose, onSaved, onChanged }: {
   issue: Issue; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void;
 }) {
   const { me, company } = useMe();

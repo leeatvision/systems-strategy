@@ -72,6 +72,7 @@ export interface Todo {
   sort_order: number;
   source_type: string | null;
   source_id: string | null;
+  created_in_session_id?: string | null;
   deleted_at: string | null;
   archived_at: string | null;
   created_at: string;

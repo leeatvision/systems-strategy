@@ -42,8 +42,10 @@ function toForm(r: Goal): Form {
   return rest;
 }
 
-export function GoalDetail() {
-  const { id } = useParams();
+/** A Goal's page; with `goalId` it's shown inside a panel (e.g. during a meeting) and `onClose` replaces leaving the page. */
+export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; onClose?: () => void; onChanged?: () => void } = {}) {
+  const params = useParams();
+  const id = goalId ?? params.id;
   const isNew = id === "new";
   const { me, company } = useMe();
   const { byId, members } = useMembers();
@@ -90,6 +92,7 @@ export function GoalDetail() {
     const { error } = await supabase.from("ss_goals").update(row).eq("id", goal.id);
     if (error) { await load(); return friendlyError(error); }
     setHistoryKey((k) => k + 1);
+    onChanged?.();
     return "";
   };
 
@@ -113,10 +116,10 @@ export function GoalDetail() {
   const toBin = async () => {
     if (!goal || !confirm("Move this Goal to the recycle bin? You can restore it from More → Recycle bin.")) return;
     const { error } = await supabase.from("ss_goals").update({ deleted_at: new Date().toISOString() }).eq("id", goal.id);
-    if (error) setMsg({ ok: false, text: friendlyError(error) }); else navigate("/goals");
+    if (error) setMsg({ ok: false, text: friendlyError(error) }); else if (onClose) { onChanged?.(); onClose(); } else navigate("/goals");
   };
 
-  const back = <Link to="/goals" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Goals</Link>;
+  const back = goalId ? <span /> : <Link to="/goals" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Goals</Link>;
 
   if (isNew) {
     return (

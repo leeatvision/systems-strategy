@@ -124,7 +124,7 @@ export function Headlines() {
   );
 }
 
-function HeadlineSheet({ h: start, members, onClose, onSaved, onChanged }: {
+export function HeadlineSheet({ h: start, members, onClose, onSaved, onChanged }: {
   h: Headline; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void;
 }) {
   const { me, company } = useMe();
