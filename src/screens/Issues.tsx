@@ -136,7 +136,7 @@ export function Issues() {
         )}
       </>}
 
-      {editing && <IssueSheet issue={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
+      {editing && <IssueSheet key={editing.id} issue={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }

@@ -69,6 +69,7 @@ export interface Todo {
   scheduled_time: string | null;
   duration_minutes: number | null;
   repeat_rule: RepeatRule | null;
+  repeat?: import("./repeat").Repeat | null;
   sort_order: number;
   source_type: string | null;
   source_id: string | null;

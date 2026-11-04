@@ -437,7 +437,7 @@ function HeadlineReview({ p }: { p: SectionProps }) {
         </ul>
       ) : <Empty>No Headlines this week.</Empty>}
       <LiveAdd p={p} placeholder="Add a Headline…" onAdd={(t, o) => add(t, o)} />
-      {opened && <HeadlineSheet h={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
+      {opened && <HeadlineSheet key={opened.id} h={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
         onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />}
     </div>
   );
@@ -469,7 +469,7 @@ function TodoReview({ p }: { p: SectionProps }) {
   };
   if (!todos) return <p className="muted">Loading…</p>;
   const done = todos.filter((t) => t.status === "done").length;
-  const sheet = opened && <TodoSheet todo={opened} onClose={() => setOpened(null)} onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />;
+  const sheet = opened && <TodoSheet key={opened.id} todo={opened} onClose={() => setOpened(null)} onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />;
   if (!todos.length) return <div className="stack"><Empty>No To-Dos due on this meeting.</Empty><LiveAdd p={p} placeholder="Add a To-Do…" withDue onAdd={add} />{sheet}</div>;
   return (
     <div className="stack">
@@ -585,9 +585,9 @@ function DiscussSolve({ p }: { p: SectionProps }) {
       </ul>
       {!open.length && <Empty>No open Issues. Well done.</Empty>}
       <LiveAdd p={p} placeholder="Add an Issue…" onAdd={add} />
-      {opened && <IssueSheet issue={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
+      {opened && <IssueSheet key={opened.id} issue={opened} members={p.members.filter((m) => m.status === "active")} onClose={() => setOpened(null)}
         onSaved={() => { setOpened(null); load(); }} onChanged={load} />}
-      {openTodo && <TodoSheet todo={openTodo} onClose={() => setOpenTodo(null)} onSaved={() => { setOpenTodo(null); load(); }} onChanged={load} />}
+      {openTodo && <TodoSheet key={openTodo.id} todo={openTodo} onClose={() => setOpenTodo(null)} onSaved={() => { setOpenTodo(null); load(); }} onChanged={load} />}
       {solvedNow.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
           <h3>Resolved this meeting <span className="count">{solvedNow.length}</span></h3>

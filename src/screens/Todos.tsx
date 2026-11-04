@@ -5,12 +5,14 @@ import { TodoBoard, TodoCalendar } from "./TodoViews";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import {
-  REPEAT, addDays, endOfWeek, fmtDay, parsePlainDate, today, useMeetings, useMembers, useOpenParam,
-  type ChecklistItem, type RepeatRule, type Todo,
+  addDays, endOfWeek, fmtDay, parsePlainDate, today, useMeetings, useMembers, useOpenParam,
+  type ChecklistItem, type Todo,
 } from "../lib/data";
 import { DATE_OPTIONS, FilterButton, FilterPanel, MineToggle, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } from "../components/ui";
 import { ItemPanel } from "../components/ItemPanel";
+import { RepeatPicker } from "../components/RepeatPicker";
+import { repeatOf, repeatText, sameRule } from "../lib/repeat";
 
 export function Todos() {
   const { me, company } = useMe();
@@ -53,7 +55,7 @@ export function Todos() {
     ["Title", "Owner", "Due", "Status", "Priority", "Personal", "Repeats", "Notes", "Created"],
     mine.map((t) => {
       const o = byId(t.owner_member_id);
-      return [t.title, o ? fullName(o) : "", t.due_date, t.status, t.priority, t.is_personal ? "yes" : "", t.repeat_rule, t.description, t.created_at.slice(0, 10)];
+      return [t.title, o ? fullName(o) : "", t.due_date, t.status, t.priority, t.is_personal ? "yes" : "", repeatText(repeatOf(t)), t.description, t.created_at.slice(0, 10)];
     }));
 
   const mine = (todos ?? []).filter((t) => ownerMatches(f.owner, t.owner_member_id, me.id)
@@ -91,7 +93,7 @@ export function Todos() {
           <div className="row small muted" style={{ gap: 8, flexWrap: "wrap" }}>
             {who === "all" && owner && <span>{owner.first_name}</span>}
             <span className={overdue ? "overdue" : ""}>Due {fmtDay(t.due_date)}</span>
-            {t.repeat_rule && <span className="row" style={{ gap: 2 }}><Repeat size={12} />{REPEAT[t.repeat_rule]}</span>}
+            {repeatOf(t) && <span className="row" style={{ gap: 2 }}><Repeat size={12} />{repeatText(repeatOf(t))}</span>}
             {t.is_personal && <PersonalBadge />}
             {t.priority === "high" && <span className="badge badge-danger">High</span>}
           </div>
@@ -148,7 +150,7 @@ export function Todos() {
         )}
       </>}
 
-      {editing && <TodoSheet todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
+      {editing && <TodoSheet key={editing.id} todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
@@ -210,7 +212,7 @@ export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: 
   const blank = () => ({
     title: todo.title, description: todo.description ?? "", owner_member_id: todo.owner_member_id,
     due_date: todo.due_date, priority: todo.priority, is_personal: todo.is_personal,
-    repeat_rule: (todo.repeat_rule ?? "") as RepeatRule | "",
+    repeat: repeatOf(todo),
   });
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState(false);
@@ -228,7 +230,8 @@ export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: 
     e.preventDefault();
     const row = {
       ...form, title: form.title.trim(), description: form.description.trim() || null,
-      is_personal: form.owner_member_id === me.id && form.is_personal, repeat_rule: form.repeat_rule || null,
+      is_personal: form.owner_member_id === me.id && form.is_personal, repeat_rule: null,
+      repeat: form.repeat && sameRule(form.repeat, repeatOf(todo)) ? { ...form.repeat, n: repeatOf(todo)?.n } : form.repeat,
     };
     run(supabase.from("ss_todos").update(row).eq("id", todo.id), () => { setTodo({ ...todo, ...row }); setEditing(false); onChanged?.(); });
   };
@@ -263,17 +266,14 @@ export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: 
         <label className="field"><span>Due</span>
           <input className="input" type="date" required value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
         </label>
-        <label className="field"><span>Repeats</span>
-          <select className="select" value={form.repeat_rule} onChange={(e) => setForm({ ...form, repeat_rule: e.target.value as RepeatRule | "" })}>
-            <option value="">Doesn't repeat</option>
-            {(Object.keys(REPEAT) as RepeatRule[]).map((k) => <option key={k} value={k}>{REPEAT[k]}</option>)}
-          </select>
-        </label>
         <label className="field"><span>Priority</span>
           <select className="select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Todo["priority"] })}>
             <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
           </select>
         </label>
+      </div>
+      <div className="field"><span>Repeats</span>
+        <RepeatPicker due={form.due_date} value={form.repeat} onChange={(r) => setForm({ ...form, repeat: r })} />
       </div>
       {form.owner_member_id === me.id && (
         <label className="row small" style={{ gap: 8, cursor: "pointer" }}>
@@ -281,7 +281,6 @@ export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: 
           Personal: only you can see it
         </label>
       )}
-      {form.repeat_rule && <p className="small muted">The next one is created when this one is ticked done.</p>}
       {error && <p className="error">{error}</p>}
       <div className="row">
         <button className="btn btn-primary" disabled={busy}>Save</button>
@@ -304,7 +303,7 @@ export function TodoSheet({ todo: start, onClose, onSaved, onChanged }: { todo: 
         <div className="goal-meta">
           <span>{owner ? fullName(owner) : "No owner"}</span>
           <span className={overdue ? "overdue" : ""}>Due {fmtDay(todo.due_date)}{overdue ? " · overdue" : ""}</span>
-          {todo.repeat_rule && <span className="row" style={{ gap: 3 }}><Repeat size={13} />{REPEAT[todo.repeat_rule]}</span>}
+          {repeatOf(todo) && <span className="row" style={{ gap: 3 }}><Repeat size={13} />{repeatText(repeatOf(todo))}</span>}
           {todo.priority === "high" && <span className="badge badge-danger">High</span>}
           {todo.is_personal && <PersonalBadge />}
         </div>

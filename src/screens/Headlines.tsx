@@ -119,7 +119,7 @@ export function Headlines() {
           </Section>
         )}
       </>}
-      {editing && <HeadlineSheet h={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
+      {editing && <HeadlineSheet key={editing.id} h={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }

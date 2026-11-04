@@ -118,7 +118,7 @@ export function Home() {
         ) : <Empty>No open Goals this quarter.</Empty>}
       </Section>
 
-      {editing && <TodoSheet todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
+      {editing && <TodoSheet key={editing.id} todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
