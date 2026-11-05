@@ -4,7 +4,7 @@ import { CalendarClock, CircleAlert } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import {
-  GOAL_STATUS, currentQuarter, endOfWeek, fmtDateTime, fmtDay, nextMeeting, qLabel, today, useMeetings,
+  GOAL_STATUS, addDays, currentQuarter, fmtDateTime, fmtDay, nextMeeting, qLabel, today, useMeetings,
   type Goal, type Todo,
 } from "../lib/data";
 import { Empty, Progress, Section, Tick } from "../components/ui";
@@ -25,7 +25,7 @@ export function Home() {
   const load = useCallback(async () => {
     const [t, r, i] = await Promise.all([
       supabase.from("ss_todos").select("*").eq("owner_member_id", me.id).eq("status", "open")
-        .is("deleted_at", null).is("archived_at", null).lte("due_date", endOfWeek()).order("due_date"),
+        .is("deleted_at", null).is("archived_at", null).lte("due_date", addDays(today(), 10)).order("due_date"),
       supabase.from("ss_goals").select("*").eq("owner_member_id", me.id).is("deleted_at", null)
         .in("status", ["on_track", "off_track"]).or(`and(quarter.eq.${q.quarter},quarter_year.eq.${q.year}),quarter.is.null`),
       supabase.from("ss_issues").select("id", { count: "exact", head: true }).eq("owner_member_id", me.id)
@@ -54,7 +54,7 @@ export function Home() {
 
   const now = today();
   const overdue = (todos ?? []).filter((t) => t.due_date < now);
-  const thisWeek = (todos ?? []).filter((t) => t.due_date >= now);
+  const dueSoon = (todos ?? []).filter((t) => t.due_date >= now);
   const upcoming = meetings.map((m) => ({ m, at: nextMeeting(m) })).filter((x) => x.at)
     .sort((a, b) => a.at!.getTime() - b.at!.getTime())[0];
 
@@ -94,8 +94,8 @@ export function Home() {
         {overdue.length > 0 && (
           <Section title="Overdue" count={overdue.length}><ul className="card list">{overdue.map(todoRow)}</ul></Section>
         )}
-        <Section title="Due this week" count={thisWeek.length} action={<Link to="/todos" className="small">All To-Dos</Link>}>
-          {thisWeek.length ? <ul className="card list">{thisWeek.map(todoRow)}</ul> : <Empty>Nothing else due this week.</Empty>}
+        <Section title="Due in the next 10 days" count={dueSoon.length} action={<Link to="/todos" className="small">All To-Dos</Link>}>
+          {dueSoon.length ? <ul className="card list">{dueSoon.map(todoRow)}</ul> : <Empty>Nothing due in the next 10 days.</Empty>}
         </Section>
       </>}
 
