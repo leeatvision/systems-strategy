@@ -44,11 +44,13 @@ export function Profile() {
         <p className="small muted">Signed in as {me.email}</p>
         <button className="btn btn-primary">Save profile</button>
       </form>
-      <form className="card card-pad stack" onSubmit={savePin}>
+      <form className="card card-pad stack" onSubmit={savePin} autoComplete="on">
         <h2>Change my PIN</h2>
+        {/* Lets password managers update the saved PIN for this account. */}
+        <input type="email" name="email" autoComplete="username" value={me.email ?? ""} readOnly hidden />
         <div className="grid-2">
-          <label className="field"><span>New PIN</span><input className="input" inputMode="numeric" maxLength={6} required value={pin.a} onChange={digits("a")} autoComplete="off" /></label>
-          <label className="field"><span>Again</span><input className="input" inputMode="numeric" maxLength={6} required value={pin.b} onChange={digits("b")} autoComplete="off" /></label>
+          <label className="field"><span>New PIN</span><input className="input" type="password" name="new-password" inputMode="numeric" pattern="[0-9]*" maxLength={6} required value={pin.a} onChange={digits("a")} autoComplete="new-password" /></label>
+          <label className="field"><span>Again</span><input className="input" type="password" name="confirm-password" inputMode="numeric" pattern="[0-9]*" maxLength={6} required value={pin.b} onChange={digits("b")} autoComplete="new-password" /></label>
         </div>
         <button className="btn">Change PIN</button>
       </form>

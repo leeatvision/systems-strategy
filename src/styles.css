@@ -780,3 +780,5 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
 .if-add { align-self: flex-start; color: var(--color-warning-fg); font-weight: 600; }
 .step-add { display: flex; flex-direction: column; gap: 6px; }
 .step-num { min-width: 24px; width: auto; padding: 0 6px; border-radius: 12px; }
+.pin-field { text-align: center; font-size: 24px !important; letter-spacing: 0.5em; padding-left: 0.5em; min-height: 52px; font-family: var(--font-mono); }
+.pin-field::placeholder { color: var(--color-border-strong); letter-spacing: 0.35em; }
