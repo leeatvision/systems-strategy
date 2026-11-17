@@ -335,6 +335,15 @@ function Checklist({ todo }: { todo: Todo }) {
     setItems((l) => l.map((x) => (x.id === c.id ? { ...x, is_done: !x.is_done } : x)));
     await supabase.from("ss_todo_checklist").update({ is_done: !c.is_done }).eq("id", c.id);
   };
+  const [editing, setEditing] = useState<string | null>(null);
+  /** Saves an edited item; an emptied one keeps its old wording. */
+  const rename = async (c: ChecklistItem, title: string) => {
+    setEditing(null);
+    const t = title.trim();
+    if (!t || t === c.title) return;
+    setItems((l) => l.map((x) => (x.id === c.id ? { ...x, title: t } : x)));
+    await supabase.from("ss_todo_checklist").update({ title: t }).eq("id", c.id);
+  };
   const done = items.filter((c) => c.is_done).length;
 
   return (
@@ -343,7 +352,17 @@ function Checklist({ todo }: { todo: Todo }) {
       {items.map((c) => (
         <div key={c.id} className="row" style={{ gap: 8 }}>
           <Tick done={c.is_done} label={c.is_done ? "Mark not done" : "Mark done"} onToggle={() => toggle(c)} />
-          <span className={c.is_done ? "struck" : ""} style={{ flex: 1 }}>{c.title}</span>
+          {editing === c.id ? (
+            <input className="input input-sm checklist-edit" defaultValue={c.title} autoFocus aria-label="Checklist item"
+              onBlur={(e) => rename(c, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+                if (e.key === "Escape") { e.preventDefault(); setEditing(null); }
+              }} />
+          ) : (
+            <button type="button" className={`checklist-text${c.is_done ? " struck" : ""}`} onClick={() => setEditing(c.id)}
+              title="Tap to edit" aria-label={`Edit: ${c.title}`}>{c.title}</button>
+          )}
           <button type="button" className="link-btn" aria-label="Remove"
             onClick={() => supabase.from("ss_todo_checklist").delete().eq("id", c.id).then(load)}><Trash2 size={14} /></button>
         </div>
