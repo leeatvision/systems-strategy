@@ -8,7 +8,7 @@ import {
   addDays, endOfWeek, fmtDay, parsePlainDate, today, useMeetings, useMembers, useOpenParam,
   type ChecklistItem, type Todo,
 } from "../lib/data";
-import { DATE_OPTIONS, FilterButton, FilterPanel, MineToggle, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { DATE_OPTIONS, FilterButton, FilterPanel, FilterSummary, MineToggle, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } from "../components/ui";
 import { ItemPanel } from "../components/ItemPanel";
 import { RepeatPicker } from "../components/RepeatPicker";
@@ -108,6 +108,7 @@ export function Todos() {
         <h1>To-Dos</h1>
       </div>
       <h2 className="print-only">To-Dos</h2>
+      <FilterSummary fields={fields} values={f} defaults={DEFAULTS} extra={f.owner === "me" ? `${me.first_name}'s To-Dos` : undefined} />
       <div className="toolbar no-print">
         <span className="seg" role="group" aria-label="View">
           {([["list", "List", List], ["board", "Board", Columns3], ["calendar", "Calendar", CalendarDays]] as const).map(([v, label, Icon]) => (
@@ -145,7 +146,7 @@ export function Todos() {
         {done.length > 0 && (
           <Section title="Done" count={done.length}
             action={f.status === "all" && <button className="btn btn-ghost btn-sm" onClick={() => setShowDone(!showDone)}>{showDone ? "Hide" : "Show"}</button>}>
-            {(showDone || f.status === "done") && <ul className="card list">{done.map(row)}</ul>}
+            <ul className={`card list${showDone || f.status === "done" ? "" : " print-block"}`}>{done.map(row)}</ul>
           </Section>
         )}
       </>}

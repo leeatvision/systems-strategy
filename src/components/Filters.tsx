@@ -144,3 +144,11 @@ export function MineToggle({ value, onChange }: { value: string; onChange: (v: "
     </span>
   );
 }
+
+/** On paper only: which filters shaped this printout (nothing when everything is shown). */
+export function FilterSummary({ fields, values, defaults, extra }: Pick<BarProps, "fields" | "values" | "defaults"> & { extra?: string }) {
+  const on = fields.filter((f) => f.key !== "sort" && values[f.key] !== defaults[f.key])
+    .map((f) => `${f.label}: ${f.options.find((o) => o.value === values[f.key])?.label ?? values[f.key]}`);
+  const parts = [extra, ...on].filter(Boolean);
+  return parts.length ? <p className="print-filters">{parts.join(" · ")}</p> : null;
+}

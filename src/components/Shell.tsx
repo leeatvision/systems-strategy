@@ -66,7 +66,17 @@ export function Shell() {
 
       <div className="main">
         <OfflineBanner />
-        <main className="content"><Outlet /></main>
+        <main className="content">
+          {/* On paper only: who it's from and when it was printed. */}
+          <div className="print-head" aria-hidden="true">
+            <img src={logo} alt="" />
+            <span className="print-company">{company.name}</span>
+            <span className="spacer" />
+            <span className="print-date">Printed {new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span>
+          </div>
+          <Outlet />
+          <div className="print-foot" aria-hidden="true">{company.name} · {APP_NAME}</div>
+        </main>
       </div>
 
       <nav className="tabbar">

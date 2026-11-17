@@ -9,7 +9,7 @@ import { Sheet } from "../components/Sheet";
 import { Comments } from "../components/Comments";
 import { Attachments } from "../components/Attachments";
 import { History } from "../components/History";
-import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { FilterButton, FilterPanel, FilterSummary, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { addDays } from "../lib/data";
 
 export interface Process {
@@ -81,6 +81,7 @@ export function Processes() {
     <div className="stack">
       <div className="page-head goals-head"><h1>Processes</h1></div>
       <h2 className="print-only">Processes</h2>
+      <FilterSummary fields={fields} values={f} defaults={DEFAULTS} />
       <div className="toolbar no-print">
         <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <span className="spacer" />

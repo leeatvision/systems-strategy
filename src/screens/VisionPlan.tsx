@@ -193,7 +193,7 @@ export function VisionPlan() {
       </div>
       {error && <p className="error">{error}</p>}
 
-      <h2 className="steps-head">Vision</h2>
+      <h2 className="steps-head plan-section-title">Vision</h2>
       <div className="card folds">
         <PlanFold title="Values" hint="3 to 7 rules you live by" count={list("value").length} {...fold("values")}>
           <ItemList section="value" {...lists} ro={ro("values")} placeholder="A Value" withNotes />
@@ -219,7 +219,7 @@ export function VisionPlan() {
         </PlanFold>
       </div>
 
-      <h2 className="steps-head">Plan</h2>
+      <h2 className="steps-head plan-section-title plan-page-two">Plan</h2>
       <div className="card folds">
         <PlanFold title="1-Year Plan" {...fold("one")}>
           <Money v={v} prefix="one_year" setField={setField} ro={ro("one")} />

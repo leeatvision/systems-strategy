@@ -4,7 +4,7 @@ import { downloadCsv } from "../lib/csv";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { addDays, fmtDay, today, useMeetings, useMembers, useOpenParam, type Issue } from "../lib/data";
-import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { FilterButton, FilterPanel, FilterSummary, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
 import { ItemPanel } from "../components/ItemPanel";
 
@@ -103,6 +103,7 @@ export function Issues() {
     <div className="stack">
       <div className="page-head goals-head"><h1>Issues</h1></div>
       <h2 className="print-only">Issues</h2>
+      <FilterSummary fields={fields} values={f} defaults={DEFAULTS} />
       <div className="toolbar no-print">
         <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <span className="spacer" />
@@ -127,11 +128,11 @@ export function Issues() {
         <Section title="Open" count={open.length}>
           {open.length ? <ul className="card list">{open.map(row)}</ul> : <Empty>No open Issues.</Empty>}
         </Section>
-        <p className="small muted">Pick the top 3 with the number on the left; those are discussed first.</p>
+        <p className="small muted no-print">Pick the top 3 with the number on the left; those are discussed first.</p>
         {solved.length > 0 && (
           <Section title="Resolved" count={solved.length}
             action={<button className="btn btn-ghost btn-sm" onClick={() => setShowSolved(!showSolved)}>{showSolved ? "Hide" : "Show"}</button>}>
-            {(showSolved || f.status === "solved") && <ul className="card list">{solved.map(row)}</ul>}
+            <ul className={`card list${showSolved || f.status === "solved" ? "" : " print-block"}`}>{solved.map(row)}</ul>
           </Section>
         )}
       </>}

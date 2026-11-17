@@ -785,3 +785,79 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
 .checklist-text { flex: 1; min-width: 0; border: 0; background: none; padding: 4px 0; font: inherit; color: inherit; text-align: left; cursor: text; overflow-wrap: anywhere; border-radius: var(--radius-sm); }
 .checklist-text:hover { background: var(--color-bg-muted); }
 .checklist-edit { flex: 1; min-width: 0; width: auto; }
+
+/* ─── Printing ─────────────────────────────────────────────────────────────
+   Every printout gets a header (logo, company, date printed), a title, the filters used, and a footer.
+   The look comes from the --print-* settings below, which default to the brand colours; a brand
+   folder's brand.css can set them (and add its own print touches) without changing this file. */
+:root {
+  --print-accent: var(--brand-500);      /* rules, section tops */
+  --print-accent-ink: var(--brand-700);  /* section labels */
+  --print-tint: var(--brand-50);         /* soft fills */
+  --print-ink: var(--gray-900);
+  --print-muted: #6b6f70;
+  --print-rule: #d9dcdc;
+  --print-head-bg: transparent;          /* header band; a brand can make it solid */
+  --print-head-ink: var(--print-ink);
+  --print-title-font: var(--font);
+  --print-title-transform: none;
+}
+.print-head, .print-foot, .print-filters, .print-block { display: none; }
+@media print {
+  @page { size: letter; margin: 0.45in 0.5in 0.6in; }
+  :root { color-scheme: light; }
+  html, body { background: #fff !important; }
+  body { color: var(--print-ink); font-size: 11.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-block { display: block !important; }
+
+  .print-head { display: flex !important; align-items: center; gap: 10px; padding: 8px 12px; margin: 0 0 14px;
+    background: var(--print-head-bg); color: var(--print-head-ink); border-bottom: 3px solid var(--print-accent); }
+  .print-head img { height: 30px; }
+  .print-company { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+  .print-date { font-size: 10.5px; opacity: 0.8; }
+  .print-foot { display: block !important; position: fixed; bottom: 0; left: 0; right: 0; padding-top: 4px;
+    border-top: 1px solid var(--print-rule); font-size: 9.5px; color: var(--print-muted); }
+
+  /* The page title: the print title where a page has one, otherwise its own heading. */
+  .stack:has(> h2.print-only) > .page-head { display: none !important; }
+  h2.print-only, .page-head h1, .goal-title { font-family: var(--print-title-font); text-transform: var(--print-title-transform);
+    color: var(--print-ink); font-size: 22px; letter-spacing: -0.015em; margin: 0 0 2px; }
+  .print-filters { display: block !important; margin: 0 0 10px; font-size: 11px; color: var(--print-muted); }
+
+  /* Lists and cards */
+  .card { border-color: var(--print-rule) !important; box-shadow: none !important; background: #fff !important; }
+  .list > li { padding: 7px 10px; break-inside: avoid; }
+  .section-label, h3.label { color: var(--print-accent-ink) !important; border-bottom: 1px solid var(--print-rule); padding-bottom: 3px; }
+  .section-label .count { color: var(--print-muted); }
+  .item-title { color: var(--print-ink); font-size: 12.5px; }
+  .avatar { border: 1px solid var(--print-rule); }
+  .badge { border: 1px solid currentColor; }
+  .fold-chevron, .fold-head .btn, .mini-spark { display: none !important; }
+  section, .goal-summary { break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Vision and Plan: two pages of boxed sections */
+  .plan { gap: 10px !important; }
+  .plan .goal-summary { border: 0 !important; border-left: 4px solid var(--print-accent) !important; background: var(--print-tint) !important; padding: 10px 14px !important; }
+  .plan .plan-summary { grid-template-columns: repeat(3, 1fr); }
+  .plan-section-title { margin: 8px 0 0 !important; font-family: var(--print-title-font); text-transform: var(--print-title-transform);
+    font-size: 15px !important; letter-spacing: 0.08em; text-transform: uppercase; color: var(--print-accent-ink); }
+  .plan-page-two { break-before: page; }
+  .plan .folds { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; border: 0 !important; background: none !important; }
+  .plan .fold { border: 1px solid var(--print-rule); border-top: 4px solid var(--print-accent); border-radius: 3px; break-inside: avoid; padding-bottom: 6px; }
+  .plan .fold + .fold { border-top: 4px solid var(--print-accent); }
+  .plan .fold-toggle { min-height: 0; padding: 7px 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--print-accent-ink); }
+  .plan .fold-count { display: none; }
+  .plan .fold-body { padding: 0 10px 4px; }
+  .plan .fold-body > p.small { display: none; }
+  .plan .plan-body { gap: 7px; }
+  .plan .plan-field > span:first-child { font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--print-muted); }
+  .plan .plan-text, .plan .plan-read { font-size: 11.5px; color: var(--print-ink); }
+  .plan .plan-money { gap: 6px; }
+
+  /* A single Goal, Process or Meeting page */
+  .goal-page .goal-summary { border-left: 4px solid var(--print-accent) !important; }
+  .goal-page:not(.plan) .folds { display: none; }
+  select { -webkit-appearance: none; appearance: none; background-image: none !important; }
+  select.prio:not(.prio-on) { visibility: hidden; }
+}

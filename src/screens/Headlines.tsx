@@ -3,7 +3,7 @@ import { Check, CircleAlert, Download, Plus, Printer, RotateCcw, Trash2 } from "
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers, useOpenParam, type Headline } from "../lib/data";
-import { FilterButton, FilterPanel, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { FilterButton, FilterPanel, FilterSummary, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { downloadCsv } from "../lib/csv";
 import { fullName } from "../lib/supabase";
 import { addDays, today } from "../lib/data";
@@ -81,6 +81,7 @@ export function Headlines() {
     <div className="stack">
       <div className="page-head goals-head"><h1>Headlines</h1></div>
       <h2 className="print-only">Headlines</h2>
+      <FilterSummary fields={fields} values={f} defaults={DEFAULTS} />
       <div className="toolbar no-print">
         <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <span className="spacer" />
@@ -115,7 +116,7 @@ export function Headlines() {
         {reviewed.length > 0 && (
           <Section title="Reviewed" count={reviewed.length}
             action={<button className="btn btn-ghost btn-sm" onClick={() => setShowReviewed(!showReviewed)}>{showReviewed ? "Hide" : "Show"}</button>}>
-            {(showReviewed || f.status === "reviewed") && <ul className="card list">{reviewed.map(row)}</ul>}
+            <ul className={`card list${showReviewed || f.status === "reviewed" ? "" : " print-block"}`}>{reviewed.map(row)}</ul>
           </Section>
         )}
       </>}

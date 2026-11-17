@@ -10,7 +10,7 @@ import {
 } from "../lib/data";
 import { Avatar, Empty, Menu, Progress, Section } from "../components/ui";
 import { QuarterClose } from "../components/QuarterClose";
-import { DATE_OPTIONS, FilterButton, FilterPanel, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { DATE_OPTIONS, FilterButton, FilterPanel, FilterSummary, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 
 const GROUPS: GoalStatus[] = ["off_track", "on_track", "done", "not_done", "canceled"];
 
@@ -119,6 +119,7 @@ export function Goals() {
         <Link to="/goals/new" className="btn btn-primary btn-sm desktop-only"><Plus size={16} />New Goal</Link>
       </div>
       <h2 className="print-only">Goals · {qLabel(q)}</h2>
+      <FilterSummary fields={fields} values={f} defaults={GOAL_DEFAULTS} extra={view === "timeline" ? "Timeline" : undefined} />
 
       <div className="toolbar no-print">
         <button className="btn btn-sm btn-ghost iconbtn" aria-label="Previous quarter" title="Previous quarter" onClick={() => setQ(shiftQuarter(q, -1))}><ChevronLeft size={18} /></button>
