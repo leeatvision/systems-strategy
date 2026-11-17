@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CalendarDays, CircleAlert, Columns3, Download, List, Plus, Printer, Repeat, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { downloadCsv } from "../lib/csv";
 import { TodoBoard, TodoCalendar } from "./TodoViews";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
@@ -119,7 +120,7 @@ export function Todos() {
         <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage("To-Dos") },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>

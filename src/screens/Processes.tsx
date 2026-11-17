@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDateTime, fmtDay, today, useMembers } from "../lib/data";
@@ -86,7 +87,7 @@ export function Processes() {
         <MineToggle value={f.owner} onChange={(v) => filters.set("owner", v)} />
         <span className="spacer" />
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
-        <Menu items={[{ label: "Print", icon: <Printer size={16} />, onSelect: () => print() }]} />
+        <Menu items={[{ label: "Print", icon: <Printer size={16} />, onSelect: () => printPage("Processes") }]} />
       </div>
       {showFilters && <FilterPanel fields={fields} values={f} defaults={DEFAULTS} onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset}
         active={filters.active} shown={shown.length} total={(list ?? []).length} />}
@@ -168,7 +169,7 @@ export function ProcessDetail() {
         <span className="spacer" />
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(p.title) },
           { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
         ]} />
       </div>

@@ -802,7 +802,7 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
   --print-title-font: var(--font);
   --print-title-transform: none;
 }
-.print-head, .print-foot, .print-filters, .print-block { display: none; }
+.print-head, .print-foot, .print-filters, .print-block, .prio-print { display: none; }
 @media print {
   @page { size: letter; margin: 0.45in 0.5in 0.6in; }
   :root { color-scheme: light; }
@@ -859,5 +859,10 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
   .goal-page .goal-summary { border-left: 4px solid var(--print-accent) !important; }
   .goal-page:not(.plan) .folds { display: none; }
   select { -webkit-appearance: none; appearance: none; background-image: none !important; }
-  select.prio:not(.prio-on) { visibility: hidden; }
+  select.prio { display: none !important; }
+  .prio-print { display: inline-flex !important; flex: none; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 4px; font-weight: 700; font-size: 12px; }
+  .prio-print-on { background: var(--print-ink); color: #fff; }
 }
+.pdf-overlay { position: fixed; inset: 0; z-index: 60; background: var(--backdrop); display: grid; place-items: center; padding: 20px; }
+.pdf-box { width: min(340px, 100%); background: var(--color-bg); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-md); }
+.pdf-text { margin: 0; text-align: center; color: var(--color-fg); font-weight: 600; }

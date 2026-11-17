@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Check, CircleAlert, Download, Plus, Printer, RotateCcw, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers, useOpenParam, type Headline } from "../lib/data";
@@ -87,7 +88,7 @@ export function Headlines() {
         <span className="spacer" />
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage("Headlines") },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>

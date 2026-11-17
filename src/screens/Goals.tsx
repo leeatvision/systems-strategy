@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarCheck, ChevronLeft, ChevronRight, Download, GanttChart, List, Plus, Printer } from "lucide-react";
+import { printPage } from "../lib/print";
 import { downloadCsv } from "../lib/csv";
 import { fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -133,7 +134,7 @@ export function Goals() {
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
           { label: `Close out ${qLabel(q)}`, icon: <CalendarCheck size={16} />, onSelect: () => setClosing(true), hidden: !(canClose && toClose.length > 0) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(`Goals ${qLabel(q)}`) },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>

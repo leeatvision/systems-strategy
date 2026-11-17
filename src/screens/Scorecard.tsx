@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, Download, Grid3x3, List, Pencil, Plus, Printer, Settings, SquarePen, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDateTime, today, useMembers, useOpenParam } from "../lib/data";
@@ -193,7 +194,7 @@ export function Scorecard() {
         <Menu items={[
           { label: "Enter Numbers", icon: <SquarePen size={16} />, onSelect: () => setEntering(true), hidden: !mine.length },
           { label: "Settings", icon: <Settings size={16} />, onSelect: () => setSettings(true) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(card.title) },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>

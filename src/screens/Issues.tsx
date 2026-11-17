@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Check, Download, Plus, Printer, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { downloadCsv } from "../lib/csv";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -85,6 +86,7 @@ export function Issues() {
           <option value="">–</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
         </select>
       ) : <Avatar m={byId(i.owner_member_id)} />}
+      {i.status === "open" && <span className={`prio-print${i.priority ? " prio-print-on" : ""}`}>{i.priority ?? ""}</span>}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="item-title">{i.title}</div>
         <div className="row small muted" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -109,7 +111,7 @@ export function Issues() {
         <span className="spacer" />
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage("Issues") },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>

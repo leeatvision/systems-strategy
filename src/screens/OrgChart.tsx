@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BadgeCheck, Copy, GripVertical, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMembers } from "../lib/data";
@@ -219,7 +220,7 @@ export function ChartScreen() {
         <span className="spacer" />
         <Menu items={[
           { label: "Add a Top Position", icon: <Plus size={16} />, onSelect: () => setEditing({ position: null, parent: null }), hidden: !isOwner },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(chart.title) },
           { label: "Make a draft copy", icon: <Copy size={16} />, onSelect: () => createChart(chart), hidden: !isOwner || chart.status !== "official" },
           { label: "Archive draft", icon: <Archive size={16} />, danger: true, hidden: !isOwner || chart.status === "official",
             onSelect: async () => { if (confirm("Archive this draft?")) { await supabase.from("ss_org_charts").update({ status: "archived" }).eq("id", chart.id); load(""); } } },

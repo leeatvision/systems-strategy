@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import { Archive, ArrowDown, ArrowUp, BadgeCheck, ChevronsUpDown, Copy, Link2, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { printPage } from "../lib/print";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal } from "../lib/data";
@@ -159,7 +160,7 @@ export function VisionPlan() {
         <span className="spacer" />
         <Menu items={[
           { label: allOpen ? "Close all sections" : "Open all sections", icon: <ChevronsUpDown size={16} />, onSelect: () => setOpen(allOpen ? new Set() : new Set(SECTIONS)) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => print() },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(v.title) },
           { label: "Make a draft copy", icon: <Copy size={16} />, onSelect: () => create(v), hidden: v.status !== "official" },
           { label: "Archive draft", icon: <Archive size={16} />, onSelect: discard, hidden: v.status === "official", danger: true },
         ]} />
