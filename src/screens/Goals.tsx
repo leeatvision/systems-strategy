@@ -19,7 +19,9 @@ export function Goals() {
   const { byId, members } = useMembers();
   const navigate = useNavigate();
   const [q, setQ] = useState<Quarter>(currentQuarter());
-  const filters = useFilters("goals", { owner: "all", type: "all", status: "all", due: "any", finish: "any", sort: "status" });
+  const GOAL_DEFAULTS = { owner: "all", type: "all", status: "not_done_yet", due: "any", finish: "any", sort: "status" };
+  // Done Goals are hidden unless chosen in Filters; each device switches to that once, then keeps its choice.
+  const filters = useFilters("goals", GOAL_DEFAULTS, { version: 2, renew: ["status"] });
   const f = filters.values;
   const [goals, setGoals] = useState<Goal[] | null>(null);
   const [steps, setSteps] = useState<Record<string, StepDot[]>>({});
@@ -65,7 +67,7 @@ export function Goals() {
     : `Q${q.quarter} ends in ${Math.round(daysLeft / 7)} weeks`;
   const shown = (goals ?? []).filter((r) => ownerMatches(f.owner, r.owner_member_id, me.id)
     && (f.type === "all" || r.goal_type === f.type)
-    && (f.status === "all" || (f.status === "open" ? isOpen(r) : r.status === f.status))
+    && (f.status === "all" || (f.status === "not_done_yet" ? r.status !== "done" : f.status === "open" ? isOpen(r) : r.status === f.status))
     && dateMatches(f.due, r.due_date, isOpen(r))
     && (f.finish === "reached" ? !!r.finish_line_completed_on : f.finish === "any" ? true : dateMatches(f.finish, r.finish_line_due, !r.finish_line_completed_on)))
     .sort((a, b) => f.sort === "due" ? (a.due_date ?? "9").localeCompare(b.due_date ?? "9")
@@ -75,7 +77,7 @@ export function Goals() {
   const fields = [
     { key: "owner", label: "Owner", options: ownerOptions(members, me.id) },
     { key: "type", label: "Type", options: [{ value: "all", label: "All types" }, ...(Object.keys(GOAL_TYPE) as GoalType[]).map((t) => ({ value: t, label: GOAL_TYPE[t] }))] },
-    { key: "status", label: "Status", options: [{ value: "all", label: "Any status" }, { value: "open", label: "On or off track" },
+    { key: "status", label: "Status", options: [{ value: "not_done_yet", label: "All but Done" }, { value: "all", label: "Any status, Done too" }, { value: "open", label: "On or off track" },
       ...(Object.keys(GOAL_STATUS) as GoalStatus[]).map((s) => ({ value: s, label: GOAL_STATUS[s].label }))] },
     { key: "due", label: "Due date", options: DATE_OPTIONS },
     { key: "finish", label: "Finish line", options: [...DATE_OPTIONS.map((o) => o.value === "none" ? { ...o, label: "No finish line date" } : o), { value: "reached", label: "Reached" }] },
@@ -134,8 +136,11 @@ export function Goals() {
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>
-      {showFilters && <FilterPanel fields={fields} values={f} defaults={{ owner: "all", type: "all", status: "all", due: "any", finish: "any", sort: "status" }}
+      {showFilters && <FilterPanel fields={fields} values={f} defaults={GOAL_DEFAULTS}
         onChange={(k, v) => filters.set(k as keyof typeof f, v)} onReset={filters.reset} active={filters.active} shown={shown.length} total={goals?.length ?? 0} />}
+      {!showFilters && f.status === "not_done_yet" && filters.active === 0 && goals && goals.some((r) => r.status === "done") && (
+        <p className="small muted no-print" style={{ margin: 0 }}>{goals.filter((r) => r.status === "done").length} Done hidden · <button type="button" className="link-btn" onClick={() => filters.set("status", "all")}>Show</button></p>
+      )}
       {!showFilters && filters.active > 0 && goals && (
         <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {goals.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
       )}
