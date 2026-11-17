@@ -866,3 +866,20 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
 .pdf-overlay { position: fixed; inset: 0; z-index: 60; background: var(--backdrop); display: grid; place-items: center; padding: 20px; }
 .pdf-box { width: min(340px, 100%); background: var(--color-bg); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-md); }
 .pdf-text { margin: 0; text-align: center; color: var(--color-fg); font-weight: 600; }
+
+/* Key Numbers printouts: the filled table and the blank sheet */
+@media print {
+  .kn-print { display: block !important; }
+  .kn-print-section { margin-bottom: 14px; break-inside: avoid; }
+  .kn-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; margin-top: 4px; }
+  .kn-table th, .kn-table td { border: 1px solid var(--print-rule); padding: 4px 4px; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kn-table td.kn-name { white-space: normal; }
+  .kn-table thead th { background: var(--print-tint); color: var(--print-accent-ink); font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kn-table .kn-name { text-align: left; width: 26%; font-weight: 600; color: var(--print-ink); }
+  .kn-table .kn-owner { width: 8%; }
+  .kn-table .kn-goal { width: 13%; color: var(--print-muted); font-size: 9.5px; }
+  .kn-on { background: #e7f4dc; color: #2f5d16; }
+  .kn-off { background: #fbe4e4; color: #a32f2f; }
+  .kn-blank td.kn-cell { height: 30px; }
+  .kn-notes { margin-top: 10px; border: 1px solid var(--print-rule); min-height: 120px; padding: 6px 8px; font-size: 10px; color: var(--print-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+}

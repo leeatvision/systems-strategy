@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, Download, Grid3x3, List, Pencil, Plus, Printer, Settings, SquarePen, Trash2 } from "lucide-react";
 import { printPage } from "../lib/print";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
-import { fmtDateTime, today, useMembers, useOpenParam } from "../lib/data";
+import { addDays, fmtDateTime, today, useMembers, useOpenParam } from "../lib/data";
 import { downloadCsv } from "../lib/csv";
 import {
-  COMPARISON_LABEL, PERIOD_LABEL, UNIT_LABEL, fmtValue, goalText, onTrack, parseNumber, recentPeriods, scheduleOf, timeline, upcomingMeeting,
+  COMPARISON_LABEL, PERIOD_LABEL, UNIT_LABEL, fmtValue, goalText, onTrack, parseNumber, recentPeriods, scheduleOf, shiftPeriod, timeline, upcomingMeeting,
   type Comparison, type MValue, type Timeline, type Measurable, type Period, type Scorecard as Card, type Unit,
 } from "../lib/scorecard";
 import { Avatar, Empty, Fold, Menu, OwnerSelect, Section } from "../components/ui";
@@ -109,6 +110,13 @@ export function Scorecard() {
   const [editing, setEditing] = useState<"new" | null>(null);
   const [settings, setSettings] = useState(false);
   const [entering, setEntering] = useState(false);
+  // Which printout is being made: the filled-in table, or a blank sheet to fill in by hand.
+  const [printMode, setPrintMode] = useState<"filled" | "blank" | null>(null);
+  useEffect(() => {
+    const done = () => setPrintMode(null);
+    window.addEventListener("afterprint", done);
+    return () => window.removeEventListener("afterprint", done);
+  }, []);
   const [view, setViewState] = useState<"list" | "grid">(() => {
     try { return (localStorage.getItem("ss.keyNumbersView") as "list" | "grid") || (wide ? "grid" : "list"); } catch { return "list"; }
   });
@@ -194,7 +202,8 @@ export function Scorecard() {
         <Menu items={[
           { label: "Enter Numbers", icon: <SquarePen size={16} />, onSelect: () => setEntering(true), hidden: !mine.length },
           { label: "Settings", icon: <Settings size={16} />, onSelect: () => setSettings(true) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(card.title) },
+          { label: "Print table", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("filled")); printPage(card.title); } },
+          { label: "Print blank sheet", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("blank")); printPage(`${card.title} blank sheet`); } },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>
@@ -208,6 +217,8 @@ export function Scorecard() {
       {measurables.length === 0 && <Empty>No Key Numbers yet. Add the handful of numbers that tell you the business is on track.</Empty>}
       {measurables.length > 0 && mine.length === 0 && <Empty>None of the Key Numbers are yours.</Empty>}
 
+      {printMode && <PrintSheet mode={printMode} card={card} t={t} sections={sections} valueFor={valueFor} byId={byId} />}
+      <div className={`stack${printMode ? " no-print" : ""}`}>
       {sections.map((s) => (
         <Section key={s.period} title={PERIOD_LABEL[s.period]} count={s.list.length}>
           {view === "grid"
@@ -215,13 +226,75 @@ export function Scorecard() {
             : <ul className="card list">{s.list.map(row)}</ul>}
         </Section>
       ))}
-      {view === "grid" && mine.length > 0 && <p className="small muted">Tap a cell to type a number; press Enter or Tab to save. Clear it to remove the number.</p>}
+      </div>
+      {view === "grid" && mine.length > 0 && <p className="small muted no-print">Tap a cell to type a number; press Enter or Tab to save. Clear it to remove the number.</p>}
       <div className="fab-space" aria-hidden />
       <button type="button" className="fab no-print" onClick={() => setEditing("new")} aria-label="New Number"><Plus size={20} />New Number</button>
 
       {editing && <MeasurableSheet m={null} card={card} all={measurables} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); navigate(`/key-numbers/${id}`); }} />}
       {settings && <SettingsSheet card={card} onClose={() => setSettings(false)} onSaved={() => { setSettings(false); load(); }} />}
       {entering && <EnterSheet card={card} t={t} list={mine} valueFor={valueFor} onSave={save} onClose={() => setEntering(false)} />}
+    </div>
+  );
+}
+
+const BLANK_COLS: Record<Period, number> = { week: 8, month: 6, quarter: 4, year: 3 };
+/** Short amounts for the printed table's narrow columns ($170.2k, $1.2M); other units as usual. */
+const fmtShort = (v: number | null | undefined, m: Measurable) => {
+  if (v === null || v === undefined || m.unit !== "dollar" || Math.abs(v) < 10000) return fmtValue(v, m.unit, m.decimals);
+  const abs = Math.abs(v), sign = v < 0 ? "-" : "";
+  return abs >= 1e6 ? `${sign}$${(abs / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M` : `${sign}$${(abs / 1e3).toFixed(abs >= 1e5 ? 0 : 1)}k`;
+};
+
+/**
+ * What prints: the numbers as a table (recent columns filled in, coloured on and off track), or a blank
+ * sheet with the same rows and empty boxes for the coming meetings (or months, quarters, years).
+ */
+function PrintSheet({ mode, card, t, sections, valueFor, byId }: {
+  mode: "filled" | "blank"; card: Card; t: Timeline; sections: { period: Period; list: Measurable[]; periods: string[] }[];
+  valueFor: (m: Measurable, p: string) => MValue | undefined; byId: ReturnType<typeof useMembers>["byId"];
+}) {
+  const upcoming = (per: Period) => {
+    const first = t.pair(per).cur;
+    const step = per === "week" ? (t.sched?.step ?? 7) : 0;
+    return Array.from({ length: BLANK_COLS[per] }, (_, i) => (per === "week" ? addDays(first, step * i) : shiftPeriod(per, first, i)));
+  };
+  return (
+    <div className="print-block kn-print">
+      <p className="print-filters" style={{ display: "block" }}>{mode === "blank"
+        ? "Blank sheet: write each number in the box for its meeting (or month). Goals shown for reference."
+        : `Recent numbers; green is on track, red is off track.`}</p>
+      {sections.map((s) => {
+        const cols = mode === "blank" ? upcoming(s.period) : [...s.periods].sort().slice(-BLANK_COLS[s.period]);
+        return (
+          <section key={s.period} className="kn-print-section">
+            <h3 className="label section-label">{PERIOD_LABEL[s.period]}{s.period === "week" && t.sched ? " · by meeting date" : ""}</h3>
+            <table className={`kn-table${mode === "blank" ? " kn-blank" : ""}`}>
+              <thead><tr>
+                <th className="kn-name">Number</th><th className="kn-owner">Owner</th><th className="kn-goal">Goal</th>
+                {cols.map((c) => <th key={c}>{t.label(s.period, c)}</th>)}
+              </tr></thead>
+              <tbody>
+                {s.list.map((m) => (
+                  <tr key={m.id}>
+                    <td className="kn-name">{m.title}</td>
+                    <td className="kn-owner">{byId(m.owner_member_id)?.first_name ?? ""}</td>
+                    <td className="kn-goal">{goalText(m)}</td>
+                    {cols.map((c) => {
+                      if (mode === "blank") return <td key={c} className="kn-cell" />;
+                      const v = valueFor(m, c);
+                      const ok = statusOf(v);
+                      return <td key={c} className={`kn-cell${ok === true ? " kn-on" : ok === false ? " kn-off" : ""}`}>{fmtShort(v?.value, m)}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        );
+      })}
+      {mode === "blank" && <div className="kn-notes"><span>Notes</span></div>}
+      <p className="small" style={{ display: "none" }}>{card.title}</p>
     </div>
   );
 }
