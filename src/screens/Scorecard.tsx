@@ -397,7 +397,7 @@ export function KeyNumberDetail() {
       <div className="row">
         <Link to="/key-numbers" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Key Numbers</Link>
         <span className="spacer" />
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
+        <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
           { label: "Drop into Issues", icon: <CircleAlert size={16} />, onSelect: toIssues },
           { label: "Move up the list", icon: <ArrowUp size={16} />, onSelect: () => move(-1), hidden: measurables[0]?.id === m.id },

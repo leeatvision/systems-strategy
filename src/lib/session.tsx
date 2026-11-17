@@ -74,5 +74,5 @@ export function useSession(): SessionApi {
 export function useMe() {
   const { state } = useSession();
   if (state.kind !== "ready") throw new Error("Not signed in");
-  return { me: state.me, company: state.company, isOwner: state.me.role === "owner" };
+  return { me: state.me, company: state.company, isOwner: state.me.role === "owner", canEdit: state.me.role !== "viewer" };
 }

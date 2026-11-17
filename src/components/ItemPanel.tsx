@@ -26,7 +26,7 @@ export function ItemPanel({ heading, itemType, itemId, onClose, editing, onEdit,
 
   return (
     <Sheet title={editing ? `Edit ${heading}` : heading} onClose={onClose} tools={!editing && <>
-      <button type="button" className="btn btn-sm btn-ghost" onClick={onEdit}><Pencil size={16} />Edit</button>
+      <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={onEdit}><Pencil size={16} />Edit</button>
       <Menu items={actions} />
     </>}>
       {editing ? edit : (

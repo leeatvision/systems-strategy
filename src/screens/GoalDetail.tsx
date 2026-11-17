@@ -145,7 +145,7 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
       <div className="row">
         {back}
         <span className="spacer" />
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
+        <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
           { label: "Drop into Issues", icon: <CircleAlert size={16} />, onSelect: dropToIssues },
           { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },

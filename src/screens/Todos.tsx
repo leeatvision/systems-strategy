@@ -181,7 +181,7 @@ function QuickAdd({ companyId, meId, members, meetingId, onAdded }: {
   };
 
   return (
-    <form className="card card-pad stack no-print" style={{ gap: 10 }} onSubmit={add}>
+    <form className="card card-pad stack no-print edit-only" style={{ gap: 10 }} onSubmit={add}>
       <div className="row">
         <input className="input" placeholder='Add a To-Do… (try "Call supplier fri")' value={title} onChange={(e) => setTitle(e.target.value)} onFocus={() => setOpen(true)} />
         <button className="btn btn-primary btn-sm" disabled={!title.trim() || !owners.length} aria-label="Add To-Do"><Plus size={18} /></button>

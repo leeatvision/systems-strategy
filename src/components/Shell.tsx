@@ -3,6 +3,7 @@ import { BarChart3, Bell, ChartLine, CircleAlert, ClipboardCheck, Compass, Home,
 import { useUnreadCount } from "../lib/notifications";
 import { OfflineBanner } from "./OfflineBanner";
 import { useMe, useSession } from "../lib/session";
+import { useEffect } from "react";
 import { APP_NAME } from "../lib/config";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo-mark.png`;
@@ -26,7 +27,11 @@ const more = [
 ];
 
 export function Shell() {
-  const { me, company } = useMe();
+  const { me, company, canEdit } = useMe();
+  // Read-only people: add and edit controls are hidden (styles key off this), and the database refuses changes anyway.
+  useEffect(() => {
+    if (canEdit) delete document.documentElement.dataset.readonly; else document.documentElement.dataset.readonly = "1";
+  }, [canEdit]);
   const unread = useUnreadCount(me.id);
   const { signOut } = useSession();
   return (
@@ -74,6 +79,7 @@ export function Shell() {
             <span className="spacer" />
             <span className="print-date">Printed {new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span>
           </div>
+          {!canEdit && <p className="readonly-note no-print">Read-only access: you can see everything; changes are made by others.</p>}
           <Outlet />
           <div className="print-foot" aria-hidden="true">{company.name} · {APP_NAME}</div>
         </main>

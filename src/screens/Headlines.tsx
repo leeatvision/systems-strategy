@@ -73,8 +73,8 @@ export function Headlines() {
         </div>
       </div>
       {h.status === "to_review"
-        ? <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); review(h, true); }}><Check size={16} />Reviewed</button>
-        : <button className="btn btn-sm btn-ghost" aria-label="Back to review" onClick={(e) => { e.stopPropagation(); review(h, false); }}><RotateCcw size={16} /></button>}
+        ? <button className="edit-only btn btn-sm" onClick={(e) => { e.stopPropagation(); review(h, true); }}><Check size={16} />Reviewed</button>
+        : <button className="edit-only btn btn-sm btn-ghost" aria-label="Back to review" onClick={(e) => { e.stopPropagation(); review(h, false); }}><RotateCcw size={16} /></button>}
     </li>
   );
 
@@ -98,7 +98,7 @@ export function Headlines() {
         <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {items.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
       )}
       <p className="small muted">Quick news to share at the meeting.</p>
-      <form className="card card-pad stack no-print" style={{ gap: 10 }} onSubmit={add}>
+      <form className="card card-pad stack no-print edit-only" style={{ gap: 10 }} onSubmit={add}>
         <div className="row">
           <input className="input" placeholder="Add a Headline…" value={title} onChange={(e) => setTitle(e.target.value)} />
           <button className="btn btn-primary btn-sm" disabled={!title.trim()} aria-label="Add Headline"><Plus size={18} /></button>
@@ -200,8 +200,8 @@ export function HeadlineSheet({ h: start, members, onClose, onSaved, onChanged }
       {(error || notice) && <p className={error ? "error" : "notice"}>{error || notice}</p>}
       <div className="row">
         {reviewed
-          ? <button className="btn btn-sm" onClick={() => review(false)}><RotateCcw size={16} />Back to review</button>
-          : <button className="btn btn-sm btn-primary" onClick={() => review(true)}><Check size={16} />Reviewed</button>}
+          ? <button className="edit-only btn btn-sm" onClick={() => review(false)}><RotateCcw size={16} />Back to review</button>
+          : <button className="edit-only btn btn-sm btn-primary" onClick={() => review(true)}><Check size={16} />Reviewed</button>}
       </div>
     </ItemPanel>
   );

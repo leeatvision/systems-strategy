@@ -9,7 +9,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 setTokenSource(async () => (await supabase.auth.getSession()).data.session?.access_token ?? null);
 
-export type Role = "owner" | "leader" | "member";
+export type Role = "owner" | "leader" | "member" | "viewer";
 
 export interface Member {
   id: string;
@@ -57,5 +57,6 @@ export function initials(m: Pick<Member, "first_name" | "last_name">): string {
 export function friendlyError(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e);
   if (msg.includes("duplicate key") && msg.includes("email")) return "Someone with that email is already here.";
+  if (/row-level security|permission denied|42501/i.test(msg)) return "You have read-only access, so this can't be changed.";
   return msg;
 }

@@ -936,3 +936,13 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
   .pp-note { font-size: 10.5px; }
   .pp-runhead { font-size: 10px; color: var(--print-muted); margin: 0 0 6px; text-transform: none; }
 }
+
+/* Read-only people: add and edit controls are hidden or inert (the database refuses changes regardless). */
+.readonly-note { display: none; }
+html[data-readonly] .readonly-note { display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--color-bg-muted); color: var(--color-fg-secondary); font-size: 13px; }
+html[data-readonly] .edit-only, html[data-readonly] .fab, html[data-readonly] .fab-space, html[data-readonly] .desktop-only,
+html[data-readonly] .live-add, html[data-readonly] .step-add, html[data-readonly] .if-add, html[data-readonly] .fold-head .btn,
+html[data-readonly] .close-banner, html[data-readonly] .date-clear, html[data-readonly] .plan-add, html[data-readonly] .plan-tools { display: none !important; }
+html[data-readonly] .tick, html[data-readonly] .step-view, html[data-readonly] .checklist-text, html[data-readonly] .sc-cell,
+html[data-readonly] .enter-input, html[data-readonly] .switch, html[data-readonly] select.prio, html[data-readonly] .scale-btn,
+html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-readonly] .badge-lg { pointer-events: none; }

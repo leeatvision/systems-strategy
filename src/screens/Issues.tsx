@@ -96,8 +96,8 @@ export function Issues() {
         </div>
       </div>
       {i.status === "open"
-        ? <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Resolved</button>
-        : <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); solve(i, false); }}><RotateCcw size={16} />Reopen</button>}
+        ? <button className="edit-only btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Resolved</button>
+        : <button className="edit-only btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); solve(i, false); }}><RotateCcw size={16} />Reopen</button>}
     </li>
   );
 
@@ -120,7 +120,7 @@ export function Issues() {
       {!showFilters && extra > 0 && issues && (
         <p className="small muted no-print" style={{ margin: 0 }}>Showing {list.length} of {issues.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
       )}
-      <form className="card card-pad row no-print" onSubmit={add}>
+      <form className="card card-pad row no-print edit-only" onSubmit={add}>
         <input className="input" placeholder="Add an Issue…" value={title} onChange={(e) => setTitle(e.target.value)} />
         <button className="btn btn-primary btn-sm" disabled={!title.trim()} aria-label="Add Issue"><Plus size={18} /></button>
       </form>
@@ -236,9 +236,9 @@ export function IssueSheet({ issue: start, members, onClose, onSaved, onChanged 
         </div>
       ) : (
         <div className="row" style={{ gap: 8 }}>
-          {!solved && <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => resolve(true)}><Check size={16} />Resolved</button>}
-          {solved && <button className="btn btn-sm" disabled={busy} onClick={() => resolve(false)}><RotateCcw size={16} />Reopen</button>}
-          <button className="btn btn-sm" onClick={startTodo}><SquareCheck size={16} />Make a To-Do</button>
+          {!solved && <button className="edit-only btn btn-sm btn-primary" disabled={busy} onClick={() => resolve(true)}><Check size={16} />Resolved</button>}
+          {solved && <button className="edit-only btn btn-sm" disabled={busy} onClick={() => resolve(false)}><RotateCcw size={16} />Reopen</button>}
+          <button className="edit-only btn btn-sm" onClick={startTodo}><SquareCheck size={16} />Make a To-Do</button>
         </div>
       )}
     </ItemPanel>

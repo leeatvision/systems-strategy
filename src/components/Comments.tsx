@@ -103,7 +103,7 @@ export function Comments({ itemType, itemId, bare, onCount }: { itemType: ItemTy
           </div>
         );
       })}
-      <form className="stack" style={{ gap: 6 }} onSubmit={post}>
+      <form className="stack edit-only" style={{ gap: 6 }} onSubmit={post}>
         <div className="row" style={{ alignItems: "flex-end" }}>
           <textarea ref={box} className="input textarea" rows={2} placeholder="Write a comment. Type @ to mention someone."
             value={draft} onChange={(e) => setDraft(e.target.value)}

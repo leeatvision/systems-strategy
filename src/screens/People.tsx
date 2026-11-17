@@ -6,7 +6,7 @@ import { useMe } from "../lib/session";
 import { APP_NAME } from "../lib/config";
 import { forgetMembers } from "../lib/data";
 
-const ROLE_LABEL: Record<Role, string> = { owner: "Owner", leader: "Leader", member: "Member" };
+const ROLE_LABEL: Record<Role, string> = { owner: "Owner", leader: "Leader", member: "Member", viewer: "Read-only" };
 const PIN_RULE = /^[0-9]{6}$/;
 
 export function People() {
@@ -130,7 +130,8 @@ function PersonSheet({ person, companyId, isSelf, hasPin, isLocked, onClose, onS
           <select className="select" value={form.role} onChange={set("role")} disabled={isSelf}>
             <option value="owner">Owner: can add people, reset PINs and permanently delete</option>
             <option value="leader">Leader: can see and edit everything</option>
-            <option value="member">Member</option>
+            <option value="member">Member: same as Leader for now</option>
+            <option value="viewer">Read-only: can see everything, can't change anything</option>
           </select>
         </label>
         <label className="field">

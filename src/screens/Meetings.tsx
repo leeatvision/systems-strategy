@@ -47,7 +47,7 @@ export function Meetings() {
                 </div>
                 {live
                   ? <button className="btn btn-sm btn-primary pulse" onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${m.id}/live`); }}><Radio size={16} />Join</button>
-                  : <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${m.id}/live`); }}><Play size={16} />Start</button>}
+                  : <button className="edit-only btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${m.id}/live`); }}><Play size={16} />Start</button>}
                 <ChevronRight size={18} className="muted no-print" />
               </li>
             );
@@ -145,7 +145,7 @@ export function MeetingDetail() {
       <div className="row">
         <Link to="/meetings" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Meetings</Link>
         <span className="spacer" />
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
+        <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
           { label: "Past Meetings", icon: <HistoryIcon size={16} />, onSelect: () => navigate(`/meetings/${m.id}/history`) },
           { label: "Remove meeting", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
@@ -157,7 +157,7 @@ export function MeetingDetail() {
           <h1 className="goal-title">{m.title}</h1>
           {live
             ? <button className="btn btn-sm btn-primary pulse" onClick={() => navigate(`/meetings/${m.id}/live`)}><Radio size={16} />Join</button>
-            : <button className="btn btn-sm btn-primary" onClick={() => navigate(`/meetings/${m.id}/live`)}><Play size={16} />Start</button>}
+            : <button className="edit-only btn btn-sm btn-primary" onClick={() => navigate(`/meetings/${m.id}/live`)}><Play size={16} />Start</button>}
         </div>
         <div className="goal-meta">
           <span>{MEETING_TYPE[m.meeting_type]}</span>

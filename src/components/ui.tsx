@@ -104,6 +104,9 @@ export function DateInput({ value, onChange, label, small, id }: {
   );
 }
 
+/** Menu choices that only look or export; the rest are hidden from read-only people. */
+const VIEW_ONLY = /^(Print|Export|Open all|Close all|Past Meetings)/;
+
 export interface MenuItem { label: string; icon?: ReactNode; onSelect: () => void; danger?: boolean; hidden?: boolean }
 
 /** A small drop-down menu, opened from a button (⋮ by default). Closes on a pick, Escape or a tap outside. */
@@ -120,7 +123,9 @@ export function Menu({ items, label = "More actions", button, className = "" }: 
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const shown = items.filter((i) => !i.hidden);
+  const readOnly = typeof document !== "undefined" && document.documentElement.dataset.readonly === "1";
+  const shown = items.filter((i) => !i.hidden && (!readOnly || VIEW_ONLY.test(i.label)));
+  if (!shown.length) return null;
   return (
     <span className={`menu-wrap ${className}`} ref={box}>
       <button type="button" className={button ? "menu-trigger" : "btn btn-ghost btn-sm iconbtn"} aria-label={label} title={label}

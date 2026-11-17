@@ -429,8 +429,8 @@ function HeadlineReview({ p }: { p: SectionProps }) {
               <Avatar m={p.byId(h.owner_member_id)} />
               <button type="button" className={`item-title live-open${h.status === "reviewed" ? " struck" : ""}`} style={{ flex: "1 1 200px" }} onClick={() => setOpened(h)}>{h.title}</button>
               {h.status === "to_review"
-                ? <button className="btn btn-sm" onClick={() => review(h, true)}><Check size={14} />Reviewed</button>
-                : <button className="btn btn-sm btn-ghost" aria-label="Undo" onClick={() => review(h, false)}><RotateCcw size={14} /></button>}
+                ? <button className="edit-only btn btn-sm" onClick={() => review(h, true)}><Check size={14} />Reviewed</button>
+                : <button className="edit-only btn btn-sm btn-ghost" aria-label="Undo" onClick={() => review(h, false)}><RotateCcw size={14} /></button>}
               <button className="btn btn-sm" onClick={() => { review(h, true); dropToIssues(p, h.title, h.owner_member_id, { type: "headline", id: h.id }, h.description); }}><CircleAlert size={14} />Issue</button>
             </li>
           ))}
@@ -593,7 +593,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
             </div>
             <div className="row" style={{ gap: 6 }}>
               <button className="btn btn-sm" onClick={() => setTodoFor({ issue: i, title: i.title, owner: i.owner_member_id, due: addDays(today(), 7) })}><SquareCheck size={14} />To-Do</button>
-              <button className="btn btn-sm btn-primary" onClick={() => solve(i, true)}><Check size={14} />Resolved</button>
+              <button className="edit-only btn btn-sm btn-primary" onClick={() => solve(i, true)}><Check size={14} />Resolved</button>
             </div>
           </li>
         ))}
@@ -608,7 +608,7 @@ function DiscussSolve({ p }: { p: SectionProps }) {
           <h3>Resolved this meeting <span className="count">{solvedNow.length}</span></h3>
           {solvedNow.map((i) => (
             <div key={i.id} className="row small"><Check size={14} color="var(--color-brand)" /><span style={{ flex: 1 }}>{i.title}</span>
-              <button className="link-btn" onClick={() => solve(i, false)}>Reopen</button></div>
+              <button className="edit-only link-btn" onClick={() => solve(i, false)}>Reopen</button></div>
           ))}
         </div>
       )}

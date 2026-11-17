@@ -95,7 +95,7 @@ export function Processes() {
         <p className="small muted no-print" style={{ margin: 0 }}>Showing {shown.length} of {list.length} · <button type="button" className="link-btn" onClick={filters.reset}>Clear filters</button></p>
       )}
       <p className="small muted">The core ways you do things, written down so everyone does them the same way.</p>
-      <form className="card card-pad row no-print" onSubmit={add}>
+      <form className="card card-pad row no-print edit-only" onSubmit={add}>
         <input className="input" placeholder="New process, e.g. “Quote to job”" value={title} onChange={(e) => setTitle(e.target.value)} />
         <button className="btn btn-primary btn-sm" disabled={!title.trim()}><Plus size={16} />Add</button>
       </form>
@@ -167,7 +167,7 @@ export function ProcessDetail() {
       <div className="row no-print">
         <Link to="/processes" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Processes</Link>
         <span className="spacer" />
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
+        <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
           { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(p.title) },
           { label: "Move to recycle bin", icon: <Trash2 size={16} />, onSelect: toBin, danger: true },
