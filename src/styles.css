@@ -883,3 +883,56 @@ td.sc-now .sc-input::placeholder { color: var(--gray-300); }
   .kn-blank td.kn-cell { height: 30px; }
   .kn-notes { margin-top: 10px; border: 1px solid var(--print-rule); min-height: 120px; padding: 6px 8px; font-size: 10px; color: var(--print-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 }
+
+/* ─── Printed Vision and Plan (its own layout; the on-screen sections don't print) ─── */
+.plan-print { display: none; }
+@media print {
+  .plan-screen { display: none !important; }
+  .plan-print { display: block !important; color: var(--print-ink); font-size: 11px; line-height: 1.4; }
+  .pp-title { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px; }
+  .pp-title h2 { margin: 0; font-family: var(--print-title-font); font-size: 22px; letter-spacing: -0.015em; color: var(--print-ink); }
+  .pp-title span { margin-left: auto; font-size: 10px; color: var(--print-muted); }
+  .pp-page { border: 1px solid var(--print-rule); border-radius: 4px; overflow: hidden; }
+  .pp-page-two { break-before: page; margin-top: 0; }
+  .pp-band { background: var(--print-accent); color: #fff; font-family: var(--print-title-font); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 12px; }
+  .pp-row { display: grid; grid-template-columns: 1.45in 1fr; border-top: 1px solid var(--print-rule); break-inside: avoid; }
+  .pp-band + .pp-row { border-top: 0; }
+  .pp-label { background: var(--print-tint); color: var(--print-accent-ink); font-weight: 700; font-size: 10px; letter-spacing: 0.07em;
+    text-transform: uppercase; padding: 9px 10px; border-right: 1px solid var(--print-rule); }
+  .pp-q { display: block; margin-top: 3px; font-size: 9px; letter-spacing: 0.04em; color: var(--print-muted); font-weight: 600; }
+  .pp-body { padding: 8px 12px 9px; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .pp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 16px; }
+  .pp-sub { min-width: 0; }
+  .pp-k { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--print-muted); margin-bottom: 2px; }
+  .pp-v { display: block; font-size: 13px; font-weight: 700; color: var(--print-ink); }
+  .pp-targets { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--print-rule); border-radius: 3px; }
+  .pp-targets > div { padding: 5px 8px; }
+  .pp-targets > div + div { border-left: 1px solid var(--print-rule); }
+  .pp-list { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+  .pp-list li { overflow-wrap: anywhere; }
+  .pp-cols { display: block; columns: 2; column-gap: 20px; }
+  .pp-cols li { break-inside: avoid; margin-bottom: 2px; }
+  .pp-note { color: var(--print-muted); font-size: 10px; margin: 0; }
+  .pp-big { margin: 0; font-size: 13px; font-weight: 600; }
+  .pp-empty { color: var(--print-rule); }
+  .plan-print p { margin: 0; white-space: pre-wrap; }
+}
+
+/* Each printed Vision and Plan page fills the sheet: the rows share the height. */
+@media print {
+  .plan-print { font-size: 12px; }
+  .pp-page { display: flex; flex-direction: column; min-height: 8.45in; }
+  .pp-page-two { min-height: 9.55in; border: 0; }
+  .pp-page-two .pp-band { border-radius: 4px 4px 0 0; }
+  .pp-page-two .pp-row:last-child { border-bottom: 1px solid var(--print-rule); }
+  .pp-page-two .pp-row { border-left: 1px solid var(--print-rule); border-right: 1px solid var(--print-rule); }
+  .pp-row { flex: 1 1 auto; }
+  .pp-label { font-size: 10.5px; padding: 12px 12px; }
+  .pp-body { padding: 11px 14px 12px; gap: 9px; }
+  .pp-v { font-size: 14px; }
+  .pp-big { font-size: 14px; }
+  .pp-k { font-size: 9px; }
+  .pp-note { font-size: 10.5px; }
+  .pp-runhead { font-size: 10px; color: var(--print-muted); margin: 0 0 6px; text-transform: none; }
+}

@@ -154,7 +154,9 @@ export function VisionPlan() {
   const allOpen = open.size === SECTIONS.length;
 
   return (
-    <div className="stack plan goal-page">
+    <>
+    <PlanPrint v={v} list={list} goals={goals} issues={issues} byId={byId} quarter={q} />
+    <div className="stack plan goal-page plan-screen">
       <div className="page-head goals-head">
         <h1>{v.title}</h1>
         <span className="spacer" />
@@ -251,6 +253,7 @@ export function VisionPlan() {
       {v.status === "official" && <p className="small muted no-print">Edits here change the official Vision and Plan directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
       {!isOwner && <p className="small muted no-print">Only owners can delete Vision and Plan versions permanently; drafts can be archived by anyone.</p>}
     </div>
+    </>
   );
 }
 
@@ -376,6 +379,102 @@ function LinkedList<T extends { id: string; title: string; owner_member_id: stri
           <button className="btn btn-sm btn-ghost" onClick={async () => { for (const o of unlinked) await add({ title: o.title, [key]: o.id }); }}>Link all {unlinked.length}</button>
         )}
         {props.allowText && <button className="link-btn plan-add" onClick={() => add({})}><Plus size={14} />Add as text</button>}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Printed Vision and Plan ─────────────────────────────────────────────────
+// Its own layout for paper: page 1 Vision, page 2 Plan, each a column of full-width rows with the
+// section name on the left. Only shown when printing.
+
+const dash = <span className="pp-empty">—</span>;
+const txt = (v: string | null | undefined) => (v && v.trim() ? v : dash);
+const day = (v: string | null | undefined) => (v ? fmtDay(v, true) : null);
+
+function PlanPrint({ v, list, goals, issues, byId, quarter }: {
+  v: Version; list: (s: Section) => Item[]; goals: Goal[]; issues: Issue[];
+  byId: (id: string | null | undefined) => { first_name: string } | undefined; quarter: { quarter: number; year: number };
+}) {
+  const names = (s: Section, extra?: (it: Item) => string | null) => {
+    const rows = list(s);
+    if (!rows.length) return dash;
+    return <ol className="pp-list">{rows.map((it) => {
+      const e = extra?.(it);
+      return <li key={it.id}><span>{it.title || "Untitled"}</span>{e ? <span className="pp-note"> · {e}</span> : null}</li>;
+    })}</ol>;
+  };
+  const targets = (prefix: "three_year" | "one_year" | "quarter", label: string) => (
+    <div className="pp-targets">
+      <div><span className="pp-k">{label}</span><span className="pp-v">{day(v[`${prefix}_date`]) ?? dash}</span></div>
+      <div><span className="pp-k">Revenue</span><span className="pp-v">{txt(v[`${prefix}_revenue`])}</span></div>
+      <div><span className="pp-k">Profit</span><span className="pp-v">{txt(v[`${prefix}_profit`])}</span></div>
+    </div>
+  );
+  const sub = (label: string, body: React.ReactNode) => <div className="pp-sub"><span className="pp-k">{label}</span><div>{body}</div></div>;
+  const status = v.status === "official" ? `Official${v.published_at ? ` since ${fmtDay(v.published_at, true)}` : ""}` : "Draft";
+  const qGoals = list("quarter_goal");
+  const longIssues = list("long_term_issue");
+
+  return (
+    <div className="plan-print print-block">
+      <div className="pp-title">
+        <h2>{v.title}</h2>
+        <span>{status} · updated {fmtDay(v.updated_at, true)}</span>
+      </div>
+
+      <div className="pp-page">
+        <div className="pp-band">Vision</div>
+        <div className="pp-row"><div className="pp-label">Values</div><div className="pp-body">{names("value", (it) => it.notes)}</div></div>
+        <div className="pp-row"><div className="pp-label">Purpose and Niche</div><div className="pp-body pp-two">
+          {sub("Purpose", txt(v.purpose))}{sub("Niche", txt(v.niche))}
+        </div></div>
+        <div className="pp-row"><div className="pp-label">Long-Term Target</div><div className="pp-body">
+          <p className="pp-big">{txt(v.long_term_target)}</p>
+          {v.long_term_target_date && <p className="pp-note">By {fmtDay(v.long_term_target_date, true)}</p>}
+        </div></div>
+        <div className="pp-row"><div className="pp-label">Marketing Strategy</div><div className="pp-body pp-two">
+          {sub("Target market", txt(v.target_market))}
+          {sub("What Sets Us Apart", names("differentiator"))}
+          {sub("How We Work", txt(v.how_we_work))}
+          {sub("Guarantee", txt(v.guarantee))}
+        </div></div>
+        <div className="pp-row"><div className="pp-label">3-Year Vision</div><div className="pp-body">
+          {targets("three_year", "Date")}
+          <div className="pp-two">
+            {sub("Measurables", names("three_year_measurable", (it) => it.value))}
+            {sub("What does it look like?", names("three_year_goal"))}
+          </div>
+        </div></div>
+      </div>
+
+      <div className="pp-page pp-page-two">
+        <div className="pp-runhead">{v.title} · {status}</div>
+        <div className="pp-band">Plan</div>
+        <div className="pp-row"><div className="pp-label">1-Year Plan</div><div className="pp-body">
+          {targets("one_year", "Date")}
+          <div className="pp-two">
+            {sub("Measurables", names("one_year_measurable", (it) => it.value))}
+            {sub("Goals for the year", names("one_year_goal", (it) => byId(it.owner_member_id)?.first_name ?? null))}
+          </div>
+        </div></div>
+        <div className="pp-row"><div className="pp-label">Quarterly Goals<span className="pp-q">Q{quarter.quarter} {quarter.year}</span></div><div className="pp-body">
+          {targets("quarter", "Date")}
+          <div className="pp-two">
+            {sub("Measurables", names("quarter_measurable", (it) => it.value))}
+            {sub("Goals", qGoals.length ? <ol className="pp-list">{qGoals.map((it) => {
+              const g = goals.find((x) => x.id === it.linked_goal_id);
+              return <li key={it.id}><span>{g?.title ?? it.title}</span>{g && <span className="pp-note"> · {byId(g.owner_member_id)?.first_name ?? ""} · {GOAL_STATUS[g.status].label}</span>}</li>;
+            })}</ol> : dash)}
+          </div>
+        </div></div>
+        <div className="pp-row"><div className="pp-label">Issues List</div><div className="pp-body">
+          {longIssues.length ? <ol className="pp-list pp-cols">{longIssues.map((it) => {
+            const i = issues.find((x) => x.id === it.linked_issue_id);
+            return <li key={it.id}><span>{i?.title ?? it.title}</span>{i && <span className="pp-note"> · {byId(i.owner_member_id)?.first_name ?? "Unassigned"}</span>}</li>;
+          })}</ol> : dash}
+        </div></div>
       </div>
     </div>
   );
