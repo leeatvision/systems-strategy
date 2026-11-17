@@ -11,7 +11,7 @@ import { fmtValue, goalText, nearestMeeting, onTrack, parseNumber, recentPeriods
 import {
   mmss, type AgendaItem, type Attendee, type MeetingRow, type Recap, type Session, type SessionAgenda, type SessionEvent,
 } from "../lib/meetings";
-import { Avatar, Empty, OwnerSelect, Tick } from "../components/ui";
+import { Avatar, Chips, Empty, OwnerSelect, Tick } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 import { GoalDetail } from "./GoalDetail";
 import { TodoSheet } from "./Todos";
@@ -447,6 +447,12 @@ function TodoReview({ p }: { p: SectionProps }) {
   const [todos, setTodos] = useState<Todo[] | null>(null);
   const [opened, setOpened] = useState<Todo | null>(null);
   const [reload, setReload] = useState(0);
+  // Open To-Dos by default; ones ticked off during this meeting stay in view (struck through) so they can be undone.
+  const [show, setShowState] = useState<"open" | "done" | "all">(() => {
+    try { return (localStorage.getItem("ss.meetingTodoFilter") as "open" | "done" | "all") || "open"; } catch { return "open"; }
+  });
+  const setShow = (v: "open" | "done" | "all") => { setShowState(v); try { localStorage.setItem("ss.meetingTodoFilter", v); } catch { /* private mode */ } };
+  const [tickedNow, setTickedNow] = useState<Set<string>>(new Set());
   useEffect(() => {
     // Due within a week, plus any added during this meeting (so they can be opened and changed).
     supabase.from("ss_todos").select("*").eq("meeting_id", p.meeting.id).eq("is_personal", false).is("deleted_at", null).is("archived_at", null)
@@ -463,12 +469,15 @@ function TodoReview({ p }: { p: SectionProps }) {
   };
   const toggle = async (t: Todo) => {
     const done = t.status !== "done";
+    if (done) setTickedNow((s) => new Set(s).add(t.id));
     setTodos((l) => l?.map((x) => (x.id === t.id ? { ...x, status: done ? "done" : "open" } : x)) ?? null);
     await supabase.from("ss_todos").update({ status: done ? "done" : "open", completed_at: done ? nowIso() : null }).eq("id", t.id);
     if (done) p.logEvent("todo", t.id, "done");
   };
   if (!todos) return <p className="muted">Loading…</p>;
   const done = todos.filter((t) => t.status === "done").length;
+  const visible = todos.filter((t) => show === "all" || (show === "done" ? t.status === "done" : t.status === "open" || tickedNow.has(t.id)));
+  const hiddenDone = todos.filter((t) => t.status === "done" && !tickedNow.has(t.id)).length;
   const sheet = opened && <TodoSheet key={opened.id} todo={opened} onClose={() => setOpened(null)} onSaved={() => { setOpened(null); setReload((n) => n + 1); }} onChanged={() => setReload((n) => n + 1)} />;
   if (!todos.length) return <div className="stack"><Empty>No To-Dos due on this meeting.</Empty><LiveAdd p={p} placeholder="Add a To-Do…" withDue onAdd={add} />{sheet}</div>;
   return (
@@ -477,8 +486,14 @@ function TodoReview({ p }: { p: SectionProps }) {
         <p className="muted" style={{ flex: 1 }}>Done or not done. Anything stuck goes to Issues.</p>
         <span className="pct">{Math.round((done / todos.length) * 100)}%</span>
       </div>
-      <ul className="card list">
-        {todos.map((t) => (
+      <div className="row" style={{ gap: 8 }}>
+        <Chips value={show} onChange={setShow} options={[{ value: "open", label: "Open" }, { value: "done", label: "Done" }, { value: "all", label: "All" }]} />
+        <span className="spacer" />
+        {show === "open" && hiddenDone > 0 && <span className="small muted">{hiddenDone} done hidden</span>}
+      </div>
+      {!visible.length && <Empty>{show === "done" ? "None done yet." : "Everything's done."}</Empty>}
+      {visible.length > 0 && <ul className="card list">
+        {visible.map((t) => (
           <li key={t.id} style={{ flexWrap: "wrap" }}>
             <Tick done={t.status === "done"} label={t.status === "done" ? "Not done" : "Done"} onToggle={() => toggle(t)} />
             <button type="button" className="live-open" style={{ flex: "1 1 200px", minWidth: 0 }} onClick={() => setOpened(t)}>
@@ -488,7 +503,7 @@ function TodoReview({ p }: { p: SectionProps }) {
             {t.status === "open" && <button className="btn btn-sm" onClick={() => dropToIssues(p, t.title, t.owner_member_id, { type: "todo", id: t.id }, t.description)}><CircleAlert size={14} />Issue</button>}
           </li>
         ))}
-      </ul>
+      </ul>}
       <LiveAdd p={p} placeholder="Add a To-Do…" withDue onAdd={add} />
       {sheet}
     </div>
