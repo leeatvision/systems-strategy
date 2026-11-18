@@ -357,6 +357,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
 
 function GoalReview({ p }: { p: SectionProps }) {
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [dropped, setDropped] = useState<Set<string>>(new Set());
   const [opened, setOpened] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const q = currentQuarter();
@@ -385,7 +386,9 @@ function GoalReview({ p }: { p: SectionProps }) {
                 <button key={s} className={`chip${r.status === s ? (s === "off_track" ? " chip-off" : " chip-on") : ""}`} onClick={() => set(r, s)}>{GOAL_STATUS[s].label}</button>
               ))}
             </div>
-            {r.status === "off_track" && <button className="btn btn-sm" onClick={() => dropToIssues(p, r.title, r.owner_member_id, { type: "goal", id: r.id })}><CircleAlert size={14} />Issue</button>}
+            {r.status === "off_track" && (dropped.has(r.id)
+              ? <span className="small muted nowrap"><Check size={14} style={{ verticalAlign: -2 }} /> In Issues</span>
+              : <button className="edit-only btn btn-sm" onClick={async () => { await dropToIssues(p, r.title, r.owner_member_id, { type: "goal", id: r.id }); setDropped((d) => new Set(d).add(r.id)); }}><CircleAlert size={14} />Issue</button>)}
           </li>
         ))}
       </ul>

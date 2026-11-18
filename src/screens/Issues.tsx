@@ -22,6 +22,7 @@ export function Issues() {
   const [showSolved, setShowSolved] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<Issue | null>(null);
+  const [todoFirst, setTodoFirst] = useState(false);
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
 
@@ -95,6 +96,7 @@ export function Issues() {
           {i.status === "solved" && i.solved_at && <span>Resolved {fmtDay(i.solved_at)}</span>}
         </div>
       </div>
+      {i.status === "open" && <button className="edit-only btn btn-sm btn-ghost" title="Make a To-Do from this Issue" onClick={(e) => { e.stopPropagation(); setTodoFirst(true); setEditing(i); }}><SquareCheck size={16} />To-Do</button>}
       {i.status === "open"
         ? <button className="edit-only btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Resolved</button>
         : <button className="edit-only btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); solve(i, false); }}><RotateCcw size={16} />Reopen</button>}
@@ -139,13 +141,13 @@ export function Issues() {
         )}
       </>}
 
-      {editing && <IssueSheet key={editing.id} issue={editing} members={active} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
+      {editing && <IssueSheet key={editing.id} issue={editing} members={active} openTodo={todoFirst} onClose={() => { setEditing(null); setTodoFirst(false); }} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}
     </div>
   );
 }
 
-export function IssueSheet({ issue: start, members, onClose, onSaved, onChanged }: {
-  issue: Issue; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void;
+export function IssueSheet({ issue: start, members, onClose, onSaved, onChanged, openTodo }: {
+  issue: Issue; members: ReturnType<typeof useMembers>["active"]; onClose: () => void; onSaved: () => void; onChanged: () => void; openTodo?: boolean;
 }) {
   const { me, company } = useMe();
   const { byId } = useMembers();
@@ -153,7 +155,7 @@ export function IssueSheet({ issue: start, members, onClose, onSaved, onChanged 
   const blank = () => ({ title: issue.title, description: issue.description ?? "", owner_member_id: issue.owner_member_id });
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState(false);
-  const [todo, setTodo] = useState<{ owner: string | null; due: string } | null>(null);
+  const [todo, setTodo] = useState<{ owner: string | null; due: string } | null>(() => openTodo ? { owner: start.owner_member_id ?? null, due: addDays(today(), 7) } : null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);

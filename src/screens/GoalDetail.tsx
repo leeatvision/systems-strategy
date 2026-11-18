@@ -54,7 +54,7 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
 
   const [goal, setGoal] = useState<Goal | null>(null);
   const [draft, setDraft] = useState<Form>(() => blankGoal(me.id, null));
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; issueId?: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [historyKey, setHistoryKey] = useState(0);
   const [steps, setSteps] = useState<GoalStep[]>([]);
@@ -106,11 +106,12 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
 
   const dropToIssues = async () => {
     if (!goal) return;
-    const { error } = await supabase.from("ss_issues").insert({
+    // Only adds an Issue that points back to this Goal; the Goal itself is left exactly as it is.
+    const { data, error } = await supabase.from("ss_issues").insert({
       company_id: company.id, meeting_id: goal.meeting_id, owner_member_id: goal.owner_member_id, title: goal.title,
       source_type: "goal", source_id: goal.id, created_by: me.id,
-    });
-    setMsg(error ? { ok: false, text: friendlyError(error) } : { ok: true, text: "Added to Issues." });
+    }).select("id").single();
+    setMsg(error ? { ok: false, text: friendlyError(error) } : { ok: true, text: "Added to Issues. The Goal stays as it is.", issueId: data?.id });
   };
 
   const toBin = async () => {
@@ -183,7 +184,7 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
           </div>
         )}
       </div>
-      {msg && <p className={msg.ok ? "notice" : "error"}>{msg.text}</p>}
+      {msg && <p className={msg.ok ? "notice" : "error"}>{msg.text}{msg.issueId && <> <Link to={`/issues?open=${msg.issueId}`}>Open the Issue</Link></>}</p>}
 
       <Steps goal={goal} companyId={company.id} onSteps={setSteps} onChange={() => setHistoryKey((k) => k + 1)} />
 

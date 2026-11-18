@@ -987,3 +987,4 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
   .gt-late { color: #a32f2f; font-weight: 600; }
   .goals-table .badge { font-size: 9.5px; }
 }
+.page-sub { margin: -14px 0 4px; }
