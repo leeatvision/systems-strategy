@@ -6,6 +6,7 @@ import { useMe } from "../lib/session";
 import { fmtDay, useMembers } from "../lib/data";
 import { Avatar, Empty, Menu, OwnerChips } from "../components/ui";
 import { Sheet } from "../components/Sheet";
+import { ZoomView } from "../components/ZoomView";
 
 interface Chart { id: string; title: string; status: "draft" | "official" | "archived"; published_at: string | null; updated_at: string }
 interface Position {
@@ -243,12 +244,11 @@ export function ChartScreen() {
             <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
           </div>
         )}
-        <p className="small muted" style={{ margin: 0 }}>{isOwner ? "Tap a position to edit it or add one under it." : "Only owners can change the Org Chart."}</p>
+        <p className="small muted" style={{ margin: 0 }}>{isOwner ? "Pencil to edit, + to add under, drag the handle to move. Pinch or use the buttons to zoom." : "Only owners can change the Org Chart. Pinch or use the buttons to zoom."}</p>
       </div>
       {error && <p className="error">{error}</p>}
-      {isOwner && positions.length > 0 && <p className="small muted no-print">Drag a Position by its handle onto another Position to move it there, along with everyone under it.</p>}
       {drag && <div data-drop="top" className={`drop-top no-print${drag.over === "top" ? " drop-ok" : ""}`}>Drop here to make it a top Position</div>}
-      {positions.length ? <div className="org-wrap"><ul className="org">{children(null).map(node)}</ul></div> : <Empty>No Positions yet. Add the top Position.</Empty>}
+      {positions.length ? <ZoomView refitKey={`${chart.id}:${positions.length}:${holders.length}`}><ul className="org org-tree">{children(null).map(node)}</ul></ZoomView> : <Empty>No Positions yet. Add the top Position.</Empty>}
       {drag && <div className="drag-ghost" style={{ left: drag.x + 12, top: drag.y + 12 }}>{drag.title}{drag.over && <span className="small"> → {drag.over === "top" ? "top Position" : positions.find((x) => x.id === drag.over)?.title}</span>}</div>}
       {editing && <PositionSheet position={editing.position} parent={editing.parent} chartId={chart.id} positions={positions} holders={holders}
         onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(chart.id); }} />}
