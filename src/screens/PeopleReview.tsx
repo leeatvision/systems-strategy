@@ -44,6 +44,13 @@ export function passes(t: Trait, r: Rating | undefined): boolean | null {
   if (!r || !STEPS[t.scale].includes(r)) return null;
   return RANK[r] >= RANK[t.bar];
 }
+/** At The Bar: every trait rated + or Y. Any N, +/- or - means not at the bar; with none, but some unrated, it's not known yet. */
+const SHORT: Rating[] = ["N", "+/-", "-"];
+export function atTheBar(traits: Trait[], ratings: Record<string, Rating>) {
+  const short = traits.filter((t) => SHORT.includes(ratings[t.id])).length;
+  const full = traits.filter((t) => ratings[t.id] === "+" || ratings[t.id] === "Y").length;
+  return { short, full, at: short > 0 ? false : full === traits.length && traits.length > 0 ? true : null };
+}
 const newId = () => crypto.randomUUID();
 const reviewTitle = (r: Review) => r.title?.trim() || `${w("People Review")} · ${fmtDay(r.reviewed_on, true)}`;
 const ratingClass = (ok: boolean | null) => (ok === null ? "" : ok ? "pr-pass" : "pr-fail");
@@ -151,14 +158,14 @@ export function PeopleReviews() {
           <ul className="card list">
             {reviews.map((r) => {
               const ps = people.filter((p) => p.review_id === r.id);
-              const below = ps.filter((p) => r.traits.some((t) => passes(t, p.ratings[t.id]) === false)).length;
+              const below = ps.filter((p) => atTheBar(r.traits, p.ratings).at === false).length;
               return (
                 <li key={r.id} className="clickable" onClick={() => navigate(`/people-review/${r.id}`)}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="item-title">{reviewTitle(r)}</div>
                     <div className="small muted">{fmtDay(r.reviewed_on, true)} · {ps.length} {ps.length === 1 ? "person" : "people"} · {r.traits.length} traits</div>
                   </div>
-                  {below > 0 ? <span className="badge badge-danger">{below} below the bar</span> : ps.length > 0 && <span className="badge badge-green">All at the bar</span>}
+                  {below > 0 ? <span className="badge badge-danger">{below} below The Bar</span> : ps.length > 0 && <span className="badge badge-green">All At The Bar</span>}
                 </li>
               );
             })}
@@ -167,8 +174,8 @@ export function PeopleReviews() {
       ) : everyone.length === 0 ? <Empty>No one has been reviewed yet.</Empty> : (
         <ul className="card list">
           {everyone.map(({ p, r }) => {
-            const below = r.traits.filter((t) => passes(t, p.ratings[t.id]) === false).length;
-            const rated = r.traits.filter((t) => passes(t, p.ratings[t.id]) !== null).length;
+            const { short: below } = atTheBar(r.traits, p.ratings);
+            const rated = r.traits.filter((t) => p.ratings[t.id]).length;
             return (
               <li key={personKey(p)} className="clickable" onClick={() => setHistory(p)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -177,7 +184,7 @@ export function PeopleReviews() {
                 </div>
                 {below > 0 ? <span className="badge badge-danger">{below} below</span>
                   : rated < r.traits.length ? <span className="badge">{rated} of {r.traits.length} rated</span>
-                  : <span className="badge badge-green">At the bar</span>}
+                  : <span className="badge badge-green">At The Bar</span>}
                 <History size={16} color="var(--color-fg-muted)" />
               </li>
             );
@@ -306,13 +313,13 @@ export function PeopleReviewDetail() {
               <tr>
                 <th className="pr-name">Name</th>
                 {traits.map((t) => <th key={t.id} className="pr-trait" title={w(t.title)}><span>{w(t.title)}</span></th>)}
-                <th className="pr-sum pr-trait"><span>At the bar</span></th>
+                <th className="pr-sum pr-trait"><span>At The Bar</span></th>
               </tr>
             </thead>
             <tbody>
               {people.map((p) => {
-                const rated = traits.filter((t) => passes(t, p.ratings[t.id]) !== null);
-                const ok = rated.filter((t) => passes(t, p.ratings[t.id])).length;
+                const bar = atTheBar(traits, p.ratings);
+                const rated = traits.filter((t) => p.ratings[t.id]);
                 return (
                   <tr key={p.id}>
                     <td className="pr-name">
@@ -327,8 +334,9 @@ export function PeopleReviewDetail() {
                         </td>
                       );
                     })}
-                    <td className={`pr-sum ${rated.length ? (ok === traits.length ? "pr-pass" : ok < rated.length ? "pr-fail" : "") : ""}`}>
-                      {rated.length ? `${ok}/${traits.length}` : "–"}
+                    <td className={`pr-sum ${bar.at === true ? "pr-pass" : bar.at === false ? "pr-fail" : ""}`}
+                      title={bar.at === false ? `${bar.short} rated N, +/- or -` : undefined}>
+                      {rated.length ? `${bar.full}/${traits.length}` : "–"}
                     </td>
                   </tr>
                 );
@@ -352,7 +360,7 @@ export function PeopleReviewDetail() {
           </table>
         </div>
       )}
-      <p className="small muted no-print">Tap a box to rate: + , +/- , - (or Y, N for yes-or-no traits); tap again to change it. Green clears the bar, red is below it. Tap a name for that person's history.</p>
+      <p className="small muted no-print">Tap a box to rate: + , +/- , - (or Y, N for yes-or-no traits); tap again to change it. Green clears the bar, red is below it. At The Bar turns red for any N, +/- or -. Tap a name for that person's history.</p>
 
       <form className="row no-print" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={addOne}>
         <select className="input" style={{ flex: "1 1 200px" }} aria-label="Add a person" value={adding} onChange={(e) => setAdding(e.target.value)}>
