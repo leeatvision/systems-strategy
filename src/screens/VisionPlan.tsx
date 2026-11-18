@@ -180,7 +180,7 @@ export function VisionPlan() {
             </select>
           )}
         </div>
-        {v.long_term_target && <p className="goal-finish"><span className="muted">Long-Term Target</span> {v.long_term_target}{v.long_term_target_date && <span className="muted nowrap"> · by {fmtDay(v.long_term_target_date, true)}</span>}</p>}
+        {v.long_term_target && <p className="goal-finish"><span className="muted">{w("Long-Term Target")}</span> {v.long_term_target}{v.long_term_target_date && <span className="muted nowrap"> · by {fmtDay(v.long_term_target_date, true)}</span>}</p>}
         <div className="plan-summary">
           {([["3-Year", "three_year"], ["1-Year", "one_year"], [`Q${q.quarter}`, "quarter"]] as const).map(([label, p]) => (
             <div key={p}><span className="muted small">{label}{v[`${p}_date`] ? ` · ${fmtDay(v[`${p}_date`], true)}` : ""}</span>
@@ -202,11 +202,11 @@ export function VisionPlan() {
         <PlanFold title="Values" hint="3 to 7 rules you live by" count={list("value").length} {...fold("values")}>
           <ItemList section="value" {...lists} ro={ro("values")} placeholder="A Value" withNotes />
         </PlanFold>
-        <PlanFold title="Purpose and Niche" hint="Why you exist, and what you're best at" {...fold("purpose")}>
+        <PlanFold title={w("Purpose and Niche")} hint="Why you exist, and what you're best at" {...fold("purpose")}>
           <label className="plan-field"><span>Purpose / cause / passion</span><Editable ro={ro("purpose")} value={v.purpose} onSave={setField("purpose")} multiline /></label>
           <label className="plan-field"><span>Niche</span><Editable ro={ro("purpose")} value={v.niche} onSave={setField("niche")} multiline /></label>
         </PlanFold>
-        <PlanFold title="Long-Term Target" hint="One big, long-range goal" {...fold("target")}>
+        <PlanFold title={w("Long-Term Target")} hint="One big, long-range goal" {...fold("target")}>
           <label className="plan-field"><span>Target</span><Editable ro={ro("target")} value={v.long_term_target} onSave={setField("long_term_target")} multiline /></label>
           <label className="plan-field"><span>By</span><Editable ro={ro("target")} type="date" value={v.long_term_target_date} onSave={setField("long_term_target_date")} /></label>
         </PlanFold>
@@ -428,10 +428,10 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
       <div className="pp-page">
         <div className="pp-band">Vision</div>
         <div className="pp-row"><div className="pp-label">Values</div><div className="pp-body">{names("value", (it) => it.notes)}</div></div>
-        <div className="pp-row"><div className="pp-label">Purpose and Niche</div><div className="pp-body pp-two">
+        <div className="pp-row"><div className="pp-label">{w("Purpose and Niche")}</div><div className="pp-body pp-two">
           {sub("Purpose", txt(v.purpose))}{sub("Niche", txt(v.niche))}
         </div></div>
-        <div className="pp-row"><div className="pp-label">Long-Term Target</div><div className="pp-body">
+        <div className="pp-row"><div className="pp-label">{w("Long-Term Target")}</div><div className="pp-body">
           <p className="pp-big">{txt(v.long_term_target)}</p>
           {v.long_term_target_date && <p className="pp-note">By {fmtDay(v.long_term_target_date, true)}</p>}
         </div></div>
