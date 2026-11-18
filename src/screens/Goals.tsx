@@ -121,6 +121,7 @@ export function Goals() {
         <span className="spacer" />
         <Link to="/goals/new" className="btn btn-primary btn-sm desktop-only"><Plus size={16} />New Goal</Link>
       </div>
+      <p className="small muted page-sub no-print">Ninety-day goals that leadership agree are worth focusing on. Do not add or remove any Goals. If Goals reach "Off Track" status, create an Issue for the leadership team to solve why the Goal is not on track.</p>
       <h2 className="print-only">Goals · {qLabel(q)}</h2>
       <FilterSummary fields={fields} values={f} defaults={GOAL_DEFAULTS} extra={view === "timeline" ? "Timeline" : undefined} />
 
