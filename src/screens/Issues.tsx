@@ -96,16 +96,24 @@ export function Issues() {
           {i.status === "solved" && i.solved_at && <span>Resolved {fmtDay(i.solved_at)}</span>}
         </div>
       </div>
+      <div className="issue-actions">
       {i.status === "open" && <button className="edit-only btn btn-sm btn-ghost" title="Make a To-Do from this Issue" onClick={(e) => { e.stopPropagation(); setTodoFirst(true); setEditing(i); }}><SquareCheck size={16} />To-Do</button>}
       {i.status === "open"
         ? <button className="edit-only btn btn-sm" onClick={(e) => { e.stopPropagation(); solve(i, true); }}><Check size={16} />Resolved</button>
         : <button className="edit-only btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); solve(i, false); }}><RotateCcw size={16} />Reopen</button>}
+      </div>
     </li>
   );
 
   return (
     <div className="stack">
       <div className="page-head goals-head"><h1>Issues</h1></div>
+      <div className="small muted page-sub issue-steps no-print">
+        <p>Prioritize issues by 1, 2, and 3 before each session.</p>
+        <p><b>Identify</b> - Get contextual information or feedback.</p>
+        <p><b>Discuss</b> - Determine the who, what, when, where, why, and how.</p>
+        <p><b>Solve</b> - Find a solution all agree on. Create any required To Dos in order to solve the issue.</p>
+      </div>
       <h2 className="print-only">Issues</h2>
       <FilterSummary fields={fields} values={f} defaults={DEFAULTS} />
       <div className="toolbar no-print">

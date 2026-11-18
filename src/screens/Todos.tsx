@@ -108,7 +108,7 @@ export function Todos() {
       <div className="page-head goals-head">
         <h1>To-Dos</h1>
       </div>
-      <p className="small muted page-sub">Seven-day action items to solve Issues.</p>
+      <p className="small muted page-sub">Seven-day action items to solve Issues. Aim to accomplish 90%+ of weekly To Dos.</p>
       <h2 className="print-only">To-Dos</h2>
       <FilterSummary fields={fields} values={f} defaults={DEFAULTS} extra={f.owner === "me" ? `${me.first_name}'s To-Dos` : undefined} />
       <div className="toolbar no-print">
