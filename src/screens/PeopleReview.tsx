@@ -44,12 +44,17 @@ export function passes(t: Trait, r: Rating | undefined): boolean | null {
   if (!r || !STEPS[t.scale].includes(r)) return null;
   return RANK[r] >= RANK[t.bar];
 }
-/** At The Bar: every trait rated + or Y. Any N, +/- or - means not at the bar; with none, but some unrated, it's not known yet. */
-const SHORT: Rating[] = ["N", "+/-", "-"];
+/**
+ * At The Bar: every yes-or-no trait is Y, no trait is -, and at most one is +/-.
+ * Red as soon as that can't hold (an N, a -, or a second +/-); green once everything is rated and it holds.
+ */
 export function atTheBar(traits: Trait[], ratings: Record<string, Rating>) {
-  const short = traits.filter((t) => SHORT.includes(ratings[t.id])).length;
-  const full = traits.filter((t) => ratings[t.id] === "+" || ratings[t.id] === "Y").length;
-  return { short, full, at: short > 0 ? false : full === traits.length && traits.length > 0 ? true : null };
+  const r = traits.map((t) => ratings[t.id]);
+  const n = r.filter((x) => x === "N").length, minus = r.filter((x) => x === "-").length, pm = r.filter((x) => x === "+/-").length;
+  const short = n + minus + (pm > 1 ? pm : 0);
+  const full = r.filter((x) => x === "+" || x === "Y").length;
+  const rated = r.filter(Boolean).length;
+  return { short, full, at: short > 0 ? false : rated === traits.length && traits.length > 0 ? true : null };
 }
 const newId = () => crypto.randomUUID();
 const reviewTitle = (r: Review) => r.title?.trim() || `${w("People Review")} · ${fmtDay(r.reviewed_on, true)}`;
@@ -335,7 +340,7 @@ export function PeopleReviewDetail() {
                       );
                     })}
                     <td className={`pr-sum ${bar.at === true ? "pr-pass" : bar.at === false ? "pr-fail" : ""}`}
-                      title={bar.at === false ? `${bar.short} rated N, +/- or -` : undefined}>
+                      title={bar.at === false ? "Has an N, a -, or more than one +/-" : undefined}>
                       {rated.length ? `${bar.full}/${traits.length}` : "–"}
                     </td>
                   </tr>
@@ -360,7 +365,7 @@ export function PeopleReviewDetail() {
           </table>
         </div>
       )}
-      <p className="small muted no-print">Tap a box to rate: + , +/- , - (or Y, N for yes-or-no traits); tap again to change it. Green clears the bar, red is below it. At The Bar turns red for any N, +/- or -. Tap a name for that person's history.</p>
+      <p className="small muted no-print">Tap a box to rate: + , +/- , - (or Y, N for yes-or-no traits); tap again to change it. Green clears the bar, red is below it. At The Bar is green when every Y/N trait is Y, nothing is -, and there is at most one +/-. Tap a name for that person's history.</p>
 
       <form className="row no-print" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={addOne}>
         <select className="input" style={{ flex: "1 1 200px" }} aria-label="Add a person" value={adding} onChange={(e) => setAdding(e.target.value)}>
