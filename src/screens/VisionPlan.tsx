@@ -8,6 +8,7 @@ import { useMe } from "../lib/session";
 import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal } from "../lib/data";
 import { Empty, Fold, Menu } from "../components/ui";
 import { Attachments } from "../components/Attachments";
+import { w } from "../lib/terms";
 
 interface Version {
   id: string; company_id: string; title: string; status: "draft" | "official" | "archived";
@@ -108,7 +109,7 @@ export function VisionPlan() {
   const setField = (k: VersionField) => (value: string | null) => v && run(supabase.from("ss_plan_versions").update({ [k]: value }).eq("id", v.id));
 
   const create = async (from: Version | null) => {
-    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: "Vision and Plan" };
+    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: w("Vision and Plan") };
     const { data, error } = await supabase.from("ss_plan_versions").insert({ ...base, company_id: company.id, status: "draft", created_by: me.id }).select("id").single();
     if (error) { setError(friendlyError(error)); return; }
     if (from) {
@@ -119,7 +120,7 @@ export function VisionPlan() {
     load(data.id);
   };
   const publish = async () => {
-    if (!v || !confirm("Make this the official Vision and Plan? The current official one is kept as an archived version.")) return;
+    if (!v || !confirm(w("Make this the official Vision and Plan? The current official one is kept as an archived version."))) return;
     const official = versions?.find((x) => x.status === "official");
     if (official) {
       const { error } = await supabase.from("ss_plan_versions").update({ status: "archived" }).eq("id", official.id);
@@ -133,9 +134,9 @@ export function VisionPlan() {
   if (!v) {
     return (
       <div className="stack">
-        <h1>Vision and Plan</h1>
-        <Empty>No Vision and Plan yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
-        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the Vision and Plan</button>
+        <h1>{w("Vision and Plan")}</h1>
+        <Empty>No {w("Vision and Plan")} yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
+        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the {w("Vision and Plan")}</button>
         {error && <p className="error">{error}</p>}
       </div>
     );
@@ -158,7 +159,7 @@ export function VisionPlan() {
     <PlanPrint v={v} list={list} goals={goals} issues={issues} byId={byId} quarter={q} />
     <div className="stack plan goal-page plan-screen">
       <div className="page-head goals-head">
-        <h1>{v.title}</h1>
+        <h1>{w(v.title)}</h1>
         <span className="spacer" />
         <Menu items={[
           { label: allOpen ? "Close all sections" : "Open all sections", icon: <ChevronsUpDown size={16} />, onSelect: () => setOpen(allOpen ? new Set() : new Set(SECTIONS)) },
@@ -229,10 +230,10 @@ export function VisionPlan() {
           <div className="plan-field"><span>Measurables</span><ItemList section="one_year_measurable" {...lists} ro={ro("one")} placeholder="Measurable" withValue /></div>
           <div className="plan-field"><span>Goals for the year (3 to 7)</span><ItemList section="one_year_goal" {...lists} ro={ro("one")} placeholder="Goal" withOwner /></div>
         </PlanFold>
-        <PlanFold title="Quarterly Goals" hint={`This quarter: Q${q.quarter} ${q.year}`} count={list("quarter_goal").length} {...fold("quarter")}>
+        <PlanFold title={w("Quarterly Goals")} hint={`This quarter: Q${q.quarter} ${q.year}`} count={list("quarter_goal").length} {...fold("quarter")}>
           <Money v={v} prefix="quarter" setField={setField} ro={ro("quarter")} />
           <div className="plan-field"><span>Measurables</span><ItemList section="quarter_measurable" {...lists} ro={ro("quarter")} placeholder="Measurable" withValue /></div>
-          <div className="plan-field"><span>Goals</span>
+          <div className="plan-field"><span>{w("Goals")}</span>
             <LinkedList section="quarter_goal" {...lists} ro={ro("quarter")} options={goals.filter((r) => r.quarter === q.quarter && r.quarter_year === q.year && r.goal_type === "company")}
               all={goals} kind="goal" render={(r) => <><Link to={`/goals/${r.id}`}>{r.title}</Link> <span className="small muted">· {byId(r.owner_member_id)?.first_name} · {GOAL_STATUS[(r as Goal).status].label}</span></>} />
           </div>
@@ -250,8 +251,8 @@ export function VisionPlan() {
           </Fold>
         </div>
       )}
-      {v.status === "official" && <p className="small muted no-print">Edits here change the official Vision and Plan directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
-      {!isOwner && <p className="small muted no-print">Only owners can delete Vision and Plan versions permanently; drafts can be archived by anyone.</p>}
+      {v.status === "official" && <p className="small muted no-print">Edits here change the official {w("Vision and Plan")} directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
+      {!isOwner && <p className="small muted no-print">Only owners can delete {w("Vision and Plan")} versions permanently; drafts can be archived by anyone.</p>}
     </div>
     </>
   );
@@ -370,7 +371,7 @@ function LinkedList<T extends { id: string; title: string; owner_member_id: stri
       <div className="row wrap no-print" style={{ gap: 6 }}>
         {unlinked.length > 0 && <>
           <select className="plan-input" style={{ width: "auto", maxWidth: 260 }} value={pick} onChange={(e) => setPick(e.target.value)}>
-            <option value="">{props.kind === "goal" ? "Choose a company Goal…" : "Link an open Issue…"}</option>
+            <option value="">{props.kind === "goal" ? w("Choose a company Goal…") : "Link an open Issue…"}</option>
             {unlinked.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
           </select>
           <button className="btn btn-sm" disabled={!pick} onClick={() => { const o = props.options.find((x) => x.id === pick); if (o) add({ title: o.title, [key]: o.id }); setPick(""); }}><Link2 size={14} />Link</button>
@@ -420,7 +421,7 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
   return (
     <div className="plan-print print-block">
       <div className="pp-title">
-        <h2>{v.title}</h2>
+        <h2>{w(v.title)}</h2>
         <span>{status} · updated {fmtDay(v.updated_at, true)}</span>
       </div>
 
@@ -450,7 +451,7 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
       </div>
 
       <div className="pp-page pp-page-two">
-        <div className="pp-runhead">{v.title} · {status}</div>
+        <div className="pp-runhead">{w(v.title)} · {status}</div>
         <div className="pp-band">Plan</div>
         <div className="pp-row"><div className="pp-label">1-Year Plan</div><div className="pp-body">
           {targets("one_year", "Date")}
@@ -459,11 +460,11 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
             {sub("Goals for the year", names("one_year_goal", (it) => byId(it.owner_member_id)?.first_name ?? null))}
           </div>
         </div></div>
-        <div className="pp-row"><div className="pp-label">Quarterly Goals<span className="pp-q">Q{quarter.quarter} {quarter.year}</span></div><div className="pp-body">
+        <div className="pp-row"><div className="pp-label">Quarterly {w("Goals")}<span className="pp-q">Q{quarter.quarter} {quarter.year}</span></div><div className="pp-body">
           {targets("quarter", "Date")}
           <div className="pp-two">
             {sub("Measurables", names("quarter_measurable", (it) => it.value))}
-            {sub("Goals", qGoals.length ? <ol className="pp-list">{qGoals.map((it) => {
+            {sub(w("Goals"), qGoals.length ? <ol className="pp-list">{qGoals.map((it) => {
               const g = goals.find((x) => x.id === it.linked_goal_id);
               return <li key={it.id}><span>{g?.title ?? it.title}</span>{g && <span className="pp-note"> · {byId(g.owner_member_id)?.first_name ?? ""} · {GOAL_STATUS[g.status].label}</span>}</li>;
             })}</ol> : dash)}

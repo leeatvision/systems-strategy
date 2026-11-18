@@ -6,6 +6,7 @@ import { fmtDateTime, fmtDay, useMembers, useOpenParam } from "../lib/data";
 import { mmss, type MeetingRow, type Session, type SessionAgenda } from "../lib/meetings";
 import { Empty } from "../components/ui";
 import { Sheet } from "../components/Sheet";
+import { w } from "../lib/terms";
 
 export function MeetingHistory() {
   const { id } = useParams();
@@ -31,7 +32,7 @@ export function MeetingHistory() {
   const ratings = (sessions ?? []).map((s) => s.summary?.average_rating).filter((x): x is number => typeof x === "number");
   return (
     <div className="stack">
-      <Link to={id ? `/meetings/${id}` : "/meetings"} className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />{meeting?.title ?? "Meetings"}</Link>
+      <Link to={id ? `/meetings/${id}` : "/meetings"} className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />{w(meeting?.title) ?? "Meetings"}</Link>
       <h1>Past Meetings</h1>
       {error && <p className="error">{error}</p>}
       {ratings.length > 0 && <p className="small muted">Average rating over {ratings.length} meeting{ratings.length === 1 ? "" : "s"}: <strong>{(ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)}</strong></p>}
@@ -91,7 +92,7 @@ function RecapSheet({ session, onClose, onBin }: { session: Session; onClose: ()
               <h3>Time per section</h3>
               {agenda.map((a) => (
                 <div key={a.id} className={`row small${a.seconds_spent > a.minutes * 60 ? " overdue" : ""}`}>
-                  <span style={{ flex: 1 }}>{a.title}</span><span>{mmss(a.seconds_spent)} of {a.minutes}:00</span>
+                  <span style={{ flex: 1 }}>{w(a.title)}</span><span>{mmss(a.seconds_spent)} of {a.minutes}:00</span>
                 </div>
               ))}
             </div>

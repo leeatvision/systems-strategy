@@ -6,8 +6,9 @@ import { useMe } from "../lib/session";
 import { fmtDateTime, useMembers } from "../lib/data";
 import { itemLink, notificationsChanged, type Notification } from "../lib/notifications";
 import { Empty } from "../components/ui";
+import { w } from "../lib/terms";
 
-const WHAT: Record<string, string> = { goal: "a Goal", todo: "a To-Do", issue: "an Issue", headline: "a Headline", process: "a Process" };
+const WHAT: Record<string, string> = { goal: w("a Goal"), todo: "a To-Do", issue: "an Issue", headline: "a Headline", process: "a Process" };
 
 export function Notifications() {
   const { me } = useMe();
@@ -66,7 +67,7 @@ export function Notifications() {
             const who = byId(n.actor_id)?.first_name ?? "Someone";
             const Icon = n.kind === "assigned" ? UserPlus : n.kind === "reminder" ? AlarmClock : n.kind === "test" ? BellRing : AtSign;
             const what = n.kind === "assigned" ? <><strong>{who}</strong> gave you a To-Do</>
-              : n.kind === "reminder" ? <><strong>{n.title ?? "Daily reminder"}</strong></>
+              : n.kind === "reminder" ? <><strong>{w(n.title) ?? "Daily reminder"}</strong></>
               : n.kind === "test" ? <><strong>Test notification</strong></>
               : <><strong>{who}</strong> mentioned you on {WHAT[n.item_type] ?? "an item"}</>;
             return (
@@ -74,7 +75,7 @@ export function Notifications() {
                 <Icon size={18} color="var(--color-fg-muted)" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="small">{what}</div>
-                  <div className="item-title" style={{ fontWeight: n.read_at ? 400 : 600, whiteSpace: "pre-line" }}>{n.summary}</div>
+                  <div className="item-title" style={{ fontWeight: n.read_at ? 400 : 600, whiteSpace: "pre-line" }}>{n.kind === "reminder" ? w(n.summary) : n.summary}</div>
                   <div className="small muted">{fmtDateTime(n.created_at)}</div>
                 </div>
                 {!n.read_at && <span className="dot" aria-label="Unread" />}

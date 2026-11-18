@@ -5,6 +5,7 @@ import { friendlyError, fullName, initials, supabase, type Member, type Role } f
 import { useMe } from "../lib/session";
 import { APP_NAME } from "../lib/config";
 import { forgetMembers } from "../lib/data";
+import { w } from "../lib/terms";
 
 const ROLE_LABEL: Record<Role, string> = { owner: "Owner", leader: "Leader", member: "Member", viewer: "Read-only" };
 const PIN_RULE = /^[0-9]{6}$/;
@@ -146,7 +147,7 @@ function PersonSheet({ person, companyId, isSelf, hasPin, isLocked, onClose, onS
         {person && !isSelf && (person.status === "active"
           ? <button type="button" className="btn btn-danger" disabled={busy} onClick={() => setStatus("removed")}>Remove from {APP_NAME}</button>
           : <button type="button" className="btn" disabled={busy} onClick={() => setStatus("active")}>Restore access</button>)}
-        {person?.status === "active" && !isSelf && <p className="small muted">Removing signs them out and blocks access. Their Goals, To-Dos and history stay.</p>}
+        {person?.status === "active" && !isSelf && <p className="small muted">Removing signs them out and blocks access. Their {w("Goals")}, To-Dos and history stay.</p>}
       </form>
     </Sheet>
   );

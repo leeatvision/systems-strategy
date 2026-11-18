@@ -17,6 +17,7 @@ import { GoalDetail } from "./GoalDetail";
 import { TodoSheet } from "./Todos";
 import { IssueSheet } from "./Issues";
 import { HeadlineSheet } from "./Headlines";
+import { w } from "../lib/terms";
 
 const nowIso = () => new Date().toISOString();
 
@@ -128,10 +129,10 @@ export function MeetingLive() {
     return (
       <div className="stack" style={{ maxWidth: 640 }}>
         <Link to="/meetings" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Meetings</Link>
-        <h1>{meeting.title}</h1>
+        <h1>{w(meeting.title)}</h1>
         <div className="card card-pad stack">
           <h2>Agenda · {template.reduce((n, a) => n + a.minutes, 0)} min</h2>
-          <ol className="agenda-preview">{template.map((a) => <li key={a.id}><span>{a.title}</span><span className="muted">{a.minutes} min</span></li>)}</ol>
+          <ol className="agenda-preview">{template.map((a) => <li key={a.id}><span>{w(a.title)}</span><span className="muted">{a.minutes} min</span></li>)}</ol>
           <button className="btn btn-primary" onClick={start}><Play size={18} />Start meeting</button>
           <p className="small muted">Everyone who opens this meeting while it's running follows along live.</p>
         </div>
@@ -153,7 +154,7 @@ export function MeetingLive() {
       <div className="live-head">
         <Link to="/meetings" className="btn btn-sm btn-ghost" aria-label="Leave"><ChevronLeft size={18} /></Link>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="item-title">{meeting.title}</div>
+          <div className="item-title">{w(meeting.title)}</div>
           <div className="small muted">Started {fmtDateTime(session.started_at)} · {mmss(elapsed)} in</div>
         </div>
         <div className="avatars">{attendees.map((a) => <Avatar key={a.id} m={byId(a.member_id)} size={28} />)}</div>
@@ -165,7 +166,7 @@ export function MeetingLive() {
             const u = used(a);
             return (
               <button key={a.id} className={`live-step${i === idx ? " on" : ""}${u > a.minutes * 60 ? " over" : ""}`} onClick={() => goTo(i)}>
-                <span>{a.title}</span><span className="small">{u > 0 ? `${mmss(u)} / ` : ""}{a.minutes}m</span>
+                <span>{w(a.title)}</span><span className="small">{u > 0 ? `${mmss(u)} / ` : ""}{a.minutes}m</span>
               </button>
             );
           })}
@@ -220,7 +221,7 @@ function SectionBody({ type, p, onEnd, agenda, used }: {
     case "todo_list": return <TodoReview p={p} />;
     case "discuss_solve": return <DiscussSolve p={p} />;
     case "conclude": return <Conclude p={p} onEnd={onEnd} agenda={agenda} used={used} />;
-    default: return <p className="muted">Use this time for {agenda.find((a) => a.item_type === type)?.title ?? "this section"}.</p>;
+    default: return <p className="muted">Use this time for {w(agenda.find((a) => a.item_type === type)?.title ?? "this section")}.</p>;
   }
 }
 
@@ -308,7 +309,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
       {title && <h3 className="label section-label">{title}</h3>}
       <div className="card sc-wrap" ref={(el) => { if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = "1"; } }}>
         <table className="sc">
-          <thead><tr><th className="sc-title">Number · goal</th>{cols.map((c, i) => (
+          <thead><tr><th className="sc-title">{w("Key Number")} · goal</th>{cols.map((c, i) => (
             <th key={c} className={`sc-head${i === cols.length - 1 ? " sc-now" : ""}`}>{t.tl.label(period, c)}</th>
           ))}<th /></tr></thead>
           <tbody>
@@ -342,7 +343,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
   const weekly = data.list.filter((m) => per(m) === "week");
   const monthly = firstOfMonth ? data.list.filter((m) => per(m) === "month") : [];
   const yearly = firstOfYear ? data.list.filter((m) => per(m) === "year") : [];
-  if (!weekly.length && !monthly.length && !yearly.length) return <Empty>No Key Numbers for this meeting yet.</Empty>;
+  if (!weekly.length && !monthly.length && !yearly.length) return <Empty>No {w("Key Number")}s for this meeting yet.</Empty>;
   return (
     <div className="stack">
       <p className="muted">Fill in today's column (or check what owners entered beforehand). Each owner reports on track or off track; anything off track goes to Issues, to discuss there.</p>
@@ -350,7 +351,7 @@ function ScorecardReview({ p }: { p: SectionProps }) {
       {table(weekly, "week", weeks, monthly.length || yearly.length ? "Weekly" : undefined)}
       {table(monthly, "month", months, `Monthly · for ${new Date(`${months.at(-1)!}T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })}`)}
       {table(yearly, "year", years, `Yearly · for ${years.at(-1)!.slice(0, 4)}`)}
-      <Link to="/key-numbers" className="small">Open Key Numbers</Link>
+      <Link to="/key-numbers" className="small">Open {w("Key Numbers")}</Link>
     </div>
   );
 }
@@ -372,10 +373,10 @@ function GoalReview({ p }: { p: SectionProps }) {
     p.logEvent("goal", r.id, "reviewed");
   };
   if (!goals) return <p className="muted">Loading…</p>;
-  if (!goals.length) return <Empty>No live Goals on this meeting this quarter.</Empty>;
+  if (!goals.length) return <Empty>No live {w("Goals")} on this meeting this quarter.</Empty>;
   return (
     <div className="stack">
-      <p className="muted">Each owner says on track or off track. Off-track Goals go to Issues.</p>
+      <p className="muted">Each owner says on track or off track. Off-track {w("Goals")} go to Issues.</p>
       <ul className="card list">
         {goals.map((r) => (
           <li key={r.id} style={{ flexWrap: "wrap" }}>
@@ -393,7 +394,7 @@ function GoalReview({ p }: { p: SectionProps }) {
         ))}
       </ul>
       {opened && (
-        <Sheet title="Goal" onClose={() => { setOpened(null); setReload((n) => n + 1); }}>
+        <Sheet title={w("Goal")} onClose={() => { setOpened(null); setReload((n) => n + 1); }}>
           <GoalDetail goalId={opened} onClose={() => setOpened(null)} onChanged={() => setReload((n) => n + 1)} />
         </Sheet>
       )}

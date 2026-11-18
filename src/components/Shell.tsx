@@ -5,21 +5,22 @@ import { OfflineBanner } from "./OfflineBanner";
 import { useMe, useSession } from "../lib/session";
 import { useEffect } from "react";
 import { APP_NAME } from "../lib/config";
+import { w } from "../lib/terms";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo-mark.png`;
 
 const main = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/goals", label: "Goals", icon: Mountain },
+  { to: "/goals", label: w("Goals"), icon: Mountain },
   { to: "/todos", label: "To-Dos", icon: SquareCheck },
   { to: "/issues", label: "Issues", icon: CircleAlert },
 ];
 const more = [
   { to: "/headlines", label: "Headlines", icon: Megaphone },
   { to: "/meetings", label: "Meetings", icon: Video },
-  { to: "/key-numbers", label: "Key Numbers", icon: BarChart3 },
-  { to: "/vision-plan", label: "Vision and Plan", icon: Compass },
-  { to: "/org-chart", label: "Org Chart", icon: Network },
+  { to: "/key-numbers", label: w("Key Numbers"), icon: BarChart3 },
+  { to: "/vision-plan", label: w("Vision and Plan"), icon: Compass },
+  { to: "/org-chart", label: w("Org Chart"), icon: Network },
   { to: "/processes", label: "Processes", icon: ListOrdered },
   { to: "/checkups", label: "Checkups", icon: ClipboardCheck },
   { to: "/insights", label: "Insights", icon: ChartLine },

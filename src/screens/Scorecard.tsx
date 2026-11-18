@@ -15,6 +15,7 @@ import { Avatar, Empty, Fold, Menu, OwnerSelect, Section } from "../components/u
 import { Sheet } from "../components/Sheet";
 import { History } from "../components/History";
 import { MineToggle, useFilters } from "../components/Filters";
+import { w } from "../lib/terms";
 
 const SECTION_ORDER: Period[] = ["week", "month", "quarter", "year"];
 const COUNT: Record<Period, number> = { week: 13, month: 6, quarter: 4, year: 3 };
@@ -124,7 +125,7 @@ export function Scorecard() {
   useOpenParam(measurables.length ? measurables : null, "ss_measurables", (m) => navigate(`/key-numbers/${m.id}`));
 
   if (card === undefined) return <p className="muted">Loading…</p>;
-  if (card === null) return <Empty>There are no Key Numbers yet. They're set up with the first meeting.</Empty>;
+  if (card === null) return <Empty>There are no {w("Key Number")}s yet. They're set up with the first meeting.</Empty>;
 
   const mine = measurables.filter((m) => filters.values.owner !== "me" || m.owner_member_id === me.id);
   const sections = SECTION_ORDER.map((p) => {
@@ -187,11 +188,11 @@ export function Scorecard() {
   return (
     <div className="stack">
       <div className="page-head goals-head">
-        <h1>{card.title}</h1>
+        <h1>{w(card.title)}</h1>
         <span className="spacer" />
-        <button className="btn btn-primary btn-sm desktop-only" onClick={() => setEditing("new")}><Plus size={16} />New Number</button>
+        <button className="btn btn-primary btn-sm desktop-only" onClick={() => setEditing("new")}><Plus size={16} />New {w("Key Number")}</button>
       </div>
-      <h2 className="print-only">{card.title}</h2>
+      <h2 className="print-only">{w(card.title)}</h2>
       <div className="toolbar no-print">
         <span className="seg" role="group" aria-label="View">
           <button type="button" className={view === "list" ? "on" : ""} aria-pressed={view === "list"} aria-label="List" title="List" onClick={() => setView("list")}><List size={18} /></button>
@@ -202,8 +203,8 @@ export function Scorecard() {
         <Menu items={[
           { label: "Enter Numbers", icon: <SquarePen size={16} />, onSelect: () => setEntering(true), hidden: !mine.length },
           { label: "Settings", icon: <Settings size={16} />, onSelect: () => setSettings(true) },
-          { label: "Print table", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("filled")); printPage(card.title); } },
-          { label: "Print blank sheet", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("blank")); printPage(`${card.title} blank sheet`); } },
+          { label: "Print table", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("filled")); printPage(w(card.title)); } },
+          { label: "Print blank sheet", icon: <Printer size={16} />, onSelect: () => { flushSync(() => setPrintMode("blank")); printPage(`${w(card.title)} blank sheet`); } },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>
@@ -214,8 +215,8 @@ export function Scorecard() {
         </div>
       )}
       {error && <p className="error">{error}</p>}
-      {measurables.length === 0 && <Empty>No Key Numbers yet. Add the handful of numbers that tell you the business is on track.</Empty>}
-      {measurables.length > 0 && mine.length === 0 && <Empty>None of the Key Numbers are yours.</Empty>}
+      {measurables.length === 0 && <Empty>No {w("Key Number")}s yet. Add the handful of numbers that tell you the business is on track.</Empty>}
+      {measurables.length > 0 && mine.length === 0 && <Empty>None of the {w("Key Number")}s are yours.</Empty>}
 
       {printMode && <PrintSheet mode={printMode} card={card} t={t} sections={sections} valueFor={valueFor} byId={byId} />}
       <div className={`stack${printMode ? " no-print" : ""}`}>
@@ -229,7 +230,7 @@ export function Scorecard() {
       </div>
       {view === "grid" && mine.length > 0 && <p className="small muted no-print">Tap a cell to type a number; press Enter or Tab to save. Clear it to remove the number.</p>}
       <div className="fab-space" aria-hidden />
-      <button type="button" className="fab no-print" onClick={() => setEditing("new")} aria-label="New Number"><Plus size={20} />New Number</button>
+      <button type="button" className="fab no-print" onClick={() => setEditing("new")} aria-label={`New ${w("Key Number")}`}><Plus size={20} />New {w("Key Number")}</button>
 
       {editing && <MeasurableSheet m={null} card={card} all={measurables} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); navigate(`/key-numbers/${id}`); }} />}
       {settings && <SettingsSheet card={card} onClose={() => setSettings(false)} onSaved={() => { setSettings(false); load(); }} />}
@@ -271,7 +272,7 @@ function PrintSheet({ mode, card, t, sections, valueFor, byId }: {
             <h3 className="label section-label">{PERIOD_LABEL[s.period]}{s.period === "week" && t.sched ? " · by meeting date" : ""}</h3>
             <table className={`kn-table${mode === "blank" ? " kn-blank" : ""}`}>
               <thead><tr>
-                <th className="kn-name">Number</th><th className="kn-owner">Owner</th><th className="kn-goal">Goal</th>
+                <th className="kn-name">{w("Key Number")}</th><th className="kn-owner">Owner</th><th className="kn-goal">Goal</th>
                 {cols.map((c) => <th key={c}>{t.label(s.period, c)}</th>)}
               </tr></thead>
               <tbody>
@@ -352,7 +353,7 @@ export function KeyNumberDetail() {
   const [msg, setMsg] = useState("");
   if (card === undefined) return <p className="muted">Loading…</p>;
   const m = measurables.find((x) => x.id === id);
-  if (!card || !m) return measurables.length || card === null ? <p className="error">That number wasn't found.</p> : <p className="muted">Loading…</p>;
+  if (!card || !m) return measurables.length || card === null ? <p className="error">That {w("Key Number")} wasn't found.</p> : <p className="muted">Loading…</p>;
 
   const per = periodOf(m, card);
   const periods = t.periods(per, TREND[per]);
@@ -370,7 +371,7 @@ export function KeyNumberDetail() {
     load();
   };
   const toBin = async () => {
-    if (!confirm("Move this number to the recycle bin? Its history is kept.")) return;
+    if (!confirm(`Move this ${w("Key Number")} to the recycle bin? Its history is kept.`)) return;
     const { error } = await supabase.from("ss_measurables").update({ deleted_at: new Date().toISOString() }).eq("id", m.id);
     if (error) setError(friendlyError(error)); else navigate("/key-numbers");
   };
@@ -395,7 +396,7 @@ export function KeyNumberDetail() {
   return (
     <div className="stack goal-page" style={{ maxWidth: 760 }}>
       <div className="row">
-        <Link to="/key-numbers" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Key Numbers</Link>
+        <Link to="/key-numbers" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />{w("Key Numbers")}</Link>
         <span className="spacer" />
         <button type="button" className="btn btn-sm btn-ghost edit-only" onClick={() => setEditing(true)}><Pencil size={16} />Edit</button>
         <Menu items={[
@@ -524,7 +525,7 @@ function Grid({ card, t, period, periods, list, loaded, valueFor, byId, onSave, 
       <table className="sc">
         <thead>
           <tr>
-            <th className="sc-title">Number · goal</th>
+            <th className="sc-title">{w("Key Number")} · goal</th>
             {periods.map((p) => <th key={p} className="sc-head">{t.label(period, p)}</th>)}
             {card.show_total && <th className="sc-head">Total</th>}
             {card.show_average && <th className="sc-head">Avg</th>}
@@ -589,7 +590,7 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
           sort_order: all.reduce((n, x) => Math.max(n, x.sort_order), 0) + 1 }).select("id").single());
   };
   return (
-    <Sheet title={m ? "Edit Number" : "New Number"} onClose={onClose}>
+    <Sheet title={`${m ? "Edit" : "New"} ${w("Key Number")}`} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field"><span>Name</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
         <div className="grid-2">
@@ -630,14 +631,14 @@ function MeasurableSheet({ m, card, all, onClose, onSaved }: { m: Measurable | n
         </label>
         <p className="small muted">Changing the goal doesn't recolour past numbers: each number keeps the goal it was entered against.</p>
         {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary">{m ? "Save" : "Add Number"}</button>
+        <button className="btn btn-primary">{m ? "Save" : `Add ${w("Key Number")}`}</button>
       </form>
     </Sheet>
   );
 }
 
 function SettingsSheet({ card, onClose, onSaved }: { card: Card; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ title: card.title, periods_to_show: card.periods_to_show, newest_first: card.newest_first, show_total: card.show_total, show_average: card.show_average });
+  const [form, setForm] = useState({ title: w(card.title), periods_to_show: card.periods_to_show, newest_first: card.newest_first, show_total: card.show_total, show_average: card.show_average });
   const [error, setError] = useState("");
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -650,7 +651,7 @@ function SettingsSheet({ card, onClose, onSaved }: { card: Card; onClose: () => 
     </label>
   );
   return (
-    <Sheet title="Key Numbers Settings" onClose={onClose}>
+    <Sheet title={w("Key Numbers Settings")} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field"><span>Name</span><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
         <label className="field"><span>{PERIOD_LABEL[card.period]} columns to show</span>

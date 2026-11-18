@@ -10,6 +10,7 @@ import {
 import { onTrack, periodStart, scheduleOf, timeline, type Measurable, type MeetingSchedule, type MValue, type Period, type Scorecard } from "../lib/scorecard";
 import type { Session } from "../lib/meetings";
 import { Avatar, Empty, Section } from "../components/ui";
+import { w } from "../lib/terms";
 
 // Goals the team aims for: most Goals done each quarter, nearly every To-Do done by its due date.
 const GOAL_TARGET = 80;
@@ -174,20 +175,20 @@ export function Insights() {
       {!s ? (!error && <p className="muted">Loading…</p>) : (
         <>
           <div className="tiles">
-            <Tile label="Goals done" value={pct(s.goalsDone, s.goalsTotal)} unit="%" goal={GOAL_TARGET}
-              detail={s.goalsTotal ? `${s.goalsDone} of ${s.goalsTotal}${s.companyTotal ? ` · company ${s.companyDone} of ${s.companyTotal}` : ""}` : "No Goals this quarter"} to="/goals" />
+            <Tile label={w("Goals done")} value={pct(s.goalsDone, s.goalsTotal)} unit="%" goal={GOAL_TARGET}
+              detail={s.goalsTotal ? `${s.goalsDone} of ${s.goalsTotal}${s.companyTotal ? ` · company ${s.companyDone} of ${s.companyTotal}` : ""}` : w("No Goals this quarter")} to="/goals" />
             <Tile label="To-Dos done on time" value={pct(s.todosOnTime, s.todosTotal)} unit="%" goal={TODO_GOAL}
               detail={s.todosTotal ? `${s.todosOnTime} of ${s.todosTotal} due so far` : future ? "Quarter hasn't started" : "None due yet"} to="/todos" />
             <Tile label="Issues resolved" value={data!.solved.length}
               detail={`${data!.opened.length} added · ${data!.openIssues.length} open now`} to="/issues" />
             <Tile label="Meeting rating" value={s.avgRating === null ? null : Math.round(s.avgRating * 10) / 10}
               detail={s.ratings ? `Average of ${s.ratings} meeting${s.ratings === 1 ? "" : "s"}, out of 10` : "No rated meetings"} to="/meetings" />
-            <Tile label="Key Numbers on track" value={pct(s.scoreOn, s.scoreTotal)} unit="%"
+            <Tile label={`${w("Key Number")}s on track`} value={pct(s.scoreOn, s.scoreTotal)} unit="%"
               detail={s.scoreTotal ? `${s.scoreOn} of ${s.scoreTotal} weekly numbers` : "No weekly numbers entered"} to="/key-numbers" />
           </div>
 
           {s.goalsTotal > 0 && (
-            <Section title="Goals by status">
+            <Section title={w("Goals by status")}>
               <div className="card card-pad stack" style={{ gap: 8 }}>
                 <StatusBar parts={[
                   { label: "Done", n: s.goalsDone, cls: "seg-done" }, { label: "On track", n: s.onTrack, cls: "seg-on" },
@@ -202,7 +203,7 @@ export function Insights() {
               <Section title="To-Dos done on time, by meeting week">
                 <div className="card card-pad"><Bars data={s.todoWeeks} max={100} unit="%" goal={TODO_GOAL} /></div>
               </Section>
-              <Section title="Key Numbers on track, by meeting week">
+              <Section title={`${w("Key Number")}s on track, by meeting week`}>
                 <div className="card card-pad"><Bars data={s.scoreWeeks} max={100} unit="%" /></div>
               </Section>
               <Section title="Issues resolved, by meeting week">
@@ -219,7 +220,7 @@ export function Insights() {
               <>
               <div className="card table-scroll person-table">
                 <table className="insight-table">
-                  <thead><tr><th>Person</th><th>Goals done</th><th>To-Dos on time</th><th>Overdue now</th><th>Open Issues</th><th>Key Numbers</th></tr></thead>
+                  <thead><tr><th>Person</th><th>{w("Goals")} done</th><th>To-Dos on time</th><th>Overdue now</th><th>Open Issues</th><th>{w("Key Numbers")}</th></tr></thead>
                   <tbody>
                     {people.map((p) => (
                       <tr key={p.m.id}>
@@ -239,18 +240,18 @@ export function Insights() {
                   <li key={p.m.id} className="stack" style={{ alignItems: "stretch", gap: 6 }}>
                     <span className="row item-title" style={{ gap: 8 }}><Avatar m={p.m} size={24} />{p.m.first_name} {p.m.last_name}</span>
                     <dl className="person-stats small">
-                      <dt>Goals done</dt><dd>{p.goalsTotal ? <>{p.goalsDone}/{p.goalsTotal}{p.goalsOff > 0 && <span className="badge badge-red" style={{ marginLeft: 6 }}>{p.goalsOff} off</span>}</> : "–"}</dd>
+                      <dt>{w("Goals")} done</dt><dd>{p.goalsTotal ? <>{p.goalsDone}/{p.goalsTotal}{p.goalsOff > 0 && <span className="badge badge-red" style={{ marginLeft: 6 }}>{p.goalsOff} off</span>}</> : "–"}</dd>
                       <dt>To-Dos on time</dt><dd>{p.todosTotal ? <PctCell n={p.todosOnTime} d={p.todosTotal} goal={TODO_GOAL} /> : "–"}</dd>
                       <dt>Overdue now</dt><dd>{p.overdue ? <span className="badge badge-red">{p.overdue}</span> : "0"}</dd>
                       <dt>Open Issues</dt><dd>{p.issues}</dd>
-                      <dt>Key Numbers</dt><dd>{p.scoreTotal ? <PctCell n={p.scoreOn} d={p.scoreTotal} /> : "–"}</dd>
+                      <dt>{w("Key Numbers")}</dt><dd>{p.scoreTotal ? <PctCell n={p.scoreOn} d={p.scoreTotal} /> : "–"}</dd>
                     </dl>
                   </li>
                 ))}
               </ul>
               </>
             )}
-            <p className="small muted">Personal To-Dos aren't counted. Goals count when they're live and not canceled.</p>
+            <p className="small muted">Personal To-Dos aren't counted. {w("Goals")} count when they're live and not canceled.</p>
           </Section>
         </>
       )}

@@ -9,6 +9,7 @@ import {
 } from "../lib/data";
 import { Empty, Progress, Section, Tick } from "../components/ui";
 import { TodoSheet } from "./Todos";
+import { w } from "../lib/terms";
 
 /** "My Week": what needs me now. */
 export function Home() {
@@ -99,7 +100,7 @@ export function Home() {
         </Section>
       </>}
 
-      <Section title={`My Goals · ${qLabel(q)}`} count={goals.length} action={<Link to="/goals" className="small">All Goals</Link>}>
+      <Section title={`My ${w("Goals")} · ${qLabel(q)}`} count={goals.length} action={<Link to="/goals" className="small">All {w("Goals")}</Link>}>
         {goals.length ? (
           <ul className="card list">
             {goals.map((r) => (
@@ -115,7 +116,7 @@ export function Home() {
               </li>
             ))}
           </ul>
-        ) : <Empty>No open Goals this quarter.</Empty>}
+        ) : <Empty>No open {w("Goals")} this quarter.</Empty>}
       </Section>
 
       {editing && <TodoSheet key={editing.id} todo={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onChanged={load} />}

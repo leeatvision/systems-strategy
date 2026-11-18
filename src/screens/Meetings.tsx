@@ -10,6 +10,7 @@ import {
 import { Avatar, DateInput, Empty, Fold, Menu, OwnerChips } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 import { History } from "../components/History";
+import { w } from "../lib/terms";
 
 export function Meetings() {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export function Meetings() {
             return (
               <li key={m.id} className="clickable" onClick={() => navigate(`/meetings/${m.id}`)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="item-title">{m.title}</div>
+                  <div className="item-title">{w(m.title)}</div>
                   <div className="small muted">{MEETING_TYPE[m.meeting_type]} · {CADENCE[m.cadence]}{next ? ` · next ${fmtDateTime(next)}` : ""}</div>
                 </div>
                 {live
@@ -130,7 +131,7 @@ export function MeetingDetail() {
     else await load();
   };
   const toBin = async () => {
-    if (!confirm("Remove this meeting? Its Goals, To-Dos and Issues stay.")) return;
+    if (!confirm(w("Remove this meeting? Its Goals, To-Dos and Issues stay."))) return;
     const { error } = await supabase.from("ss_meetings").update({ deleted_at: new Date().toISOString() }).eq("id", m.id);
     if (error) setError(friendlyError(error)); else navigate("/meetings");
   };
@@ -154,7 +155,7 @@ export function MeetingDetail() {
 
       <div className="card card-pad goal-summary">
         <div className="row" style={{ alignItems: "flex-start" }}>
-          <h1 className="goal-title">{m.title}</h1>
+          <h1 className="goal-title">{w(m.title)}</h1>
           {live
             ? <button className="btn btn-sm btn-primary pulse" onClick={() => navigate(`/meetings/${m.id}/live`)}><Radio size={16} />Join</button>
             : <button className="edit-only btn btn-sm btn-primary" onClick={() => navigate(`/meetings/${m.id}/live`)}><Play size={16} />Start</button>}
@@ -181,7 +182,7 @@ export function MeetingDetail() {
               <li key={a.id} className="step-editing">
                 <span className="step-num">{i + 1}</span>
                 <div className="step-fields">
-                  <input className="input" defaultValue={a.title} aria-label="Section title" autoFocus
+                  <input className="input" defaultValue={w(a.title)} aria-label="Section title" autoFocus
                     onBlur={(e) => e.target.value.trim() !== a.title && patchItem(a, { title: e.target.value.trim() || AGENDA_LABEL[a.item_type] })} />
                   <div className="grid-2">
                     <label className="field"><span>Kind</span>
@@ -208,7 +209,7 @@ export function MeetingDetail() {
               <li key={a.id}>
                 <span className="step-num">{i + 1}</span>
                 <button type="button" className="step-view agenda-view" onClick={() => setEditItem(a.id)} aria-label={`Edit section: ${a.title}`}>
-                  <span className="step-text">{a.title}</span>
+                  <span className="step-text">{w(a.title)}</span>
                   <span className="small muted nowrap">{a.minutes} min{a.fill_time ? " · uses spare time" : ""}</span>
                 </button>
               </li>
@@ -245,7 +246,7 @@ function MeetingSheet({ meeting, onClose, onSaved }: { meeting: MeetingRow | nul
   const { active } = useMembers();
   const local = meeting?.first_meeting_at ? new Date(meeting.first_meeting_at) : null;
   const [form, setForm] = useState({
-    title: meeting?.title ?? "", meeting_type: meeting?.meeting_type ?? ("weekly" as MeetingRow["meeting_type"]),
+    title: w(meeting?.title ?? ""), meeting_type: meeting?.meeting_type ?? ("weekly" as MeetingRow["meeting_type"]),
     cadence: meeting?.cadence ?? ("weekly" as MeetingRow["cadence"]), is_leadership: meeting?.is_leadership ?? false,
     day: local ? isoDay(local) : null as string | null,
     time: local ? `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}` : "08:00",

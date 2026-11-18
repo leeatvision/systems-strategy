@@ -5,6 +5,7 @@ import { useMe } from "../lib/session";
 import { useMeetings, useMembers } from "../lib/data";
 import { Empty, OwnerChips } from "../components/ui";
 import { Sheet } from "../components/Sheet";
+import { w } from "../lib/terms";
 
 type Kind = "key_numbers" | "todos_due" | "goal_check_in" | "meeting_coming_up" | "custom";
 interface Reminder {
@@ -13,9 +14,9 @@ interface Reminder {
 }
 
 export const KINDS: Record<Kind, { label: string; about: string; icon: typeof AlarmClock }> = {
-  key_numbers: { label: "Key Numbers to Enter", about: "Their weekly Key Numbers still empty for the next meeting, by name.", icon: BarChart3 },
+  key_numbers: { label: `${w("Key Number")}s to Enter`, about: `Their weekly ${w("Key Number")}s still empty for the next meeting, by name.`, icon: BarChart3 },
   todos_due: { label: "To-Dos Due", about: "Their overdue To-Dos and those due in the next 7 days, by name.", icon: SquareCheck },
-  goal_check_in: { label: "Goal Check-In", about: "How many Goals they have open, which are off track, and steps due or late.", icon: Mountain },
+  goal_check_in: { label: w("Goal Check-In"), about: w("How many Goals they have open, which are off track, and steps due or late."), icon: Mountain },
   meeting_coming_up: { label: "Meeting Coming Up", about: "The meeting, its day and time, and the top open Issues on its list.", icon: CalendarClock },
   custom: { label: "Custom Message", about: "Your own words, as written.", icon: MessageSquare },
 };
@@ -47,7 +48,7 @@ export function Reminders() {
   };
   const when = (r: Reminder) => r.timing === "weekly"
     ? `${r.weekdays.length === 7 ? "Every day" : [...r.weekdays].sort().map((d) => DAYS[d]).join(", ")} · ${fmtTime(r.at_time)}`
-    : `${r.days_before === 0 ? "Day of" : `${r.days_before} day${r.days_before === 1 ? "" : "s"} before`} ${meetings.find((m) => m.id === r.meeting_id)?.title ?? "the meeting"} · ${fmtTime(r.at_time)}`;
+    : `${r.days_before === 0 ? "Day of" : `${r.days_before} day${r.days_before === 1 ? "" : "s"} before`} ${w(meetings.find((m) => m.id === r.meeting_id)?.title) ?? "the meeting"} · ${fmtTime(r.at_time)}`;
   const who = (r: Reminder) => r.everyone ? "Everyone" : r.member_ids.map((id) => byId(id)?.first_name).filter(Boolean).join(", ") || "No one";
 
   return (
@@ -57,7 +58,7 @@ export function Reminders() {
         <span className="spacer" />
         {isOwner && <button className="btn btn-primary btn-sm desktop-only" onClick={() => setEditing("new")}><Plus size={16} />New Reminder</button>}
       </div>
-      <p className="small muted">Each reminder goes to people's Notifications and phones, filled in with their own To-Dos, Goals, Key Numbers or meeting. If someone has nothing to report, theirs is skipped.{isOwner ? "" : " Owners set reminders up."}</p>
+      <p className="small muted">Each reminder goes to people's Notifications and phones, filled in with their own To-Dos, {w("Goals")}, {w("Key Number")}s or meeting. If someone has nothing to report, theirs is skipped.{isOwner ? "" : " Owners set reminders up."}</p>
       {error && <p className="error">{error}</p>}
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <Empty>No reminders yet.{isOwner ? " Add one to nudge people before the meeting." : ""}</Empty> : (
         <ul className="card list">
@@ -168,7 +169,7 @@ function ReminderSheet({ r, onClose, onSaved }: { r: Reminder | null; onClose: (
           <div className="grid-2">
             <label className="field"><span>Meeting</span>
               <select className="select" value={form.meeting_id ?? ""} onChange={(e) => set("meeting_id", e.target.value)}>
-                {meetings.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+                {meetings.map((m) => <option key={m.id} value={m.id}>{w(m.title)}</option>)}
               </select>
             </label>
             <label className="field"><span>Day</span>
@@ -192,7 +193,7 @@ function ReminderSheet({ r, onClose, onSaved }: { r: Reminder | null; onClose: (
 
         <label className="field"><span>{form.kind === "custom" ? "Message" : "Note to add (optional)"}</span>
           <textarea className="input textarea" rows={2} maxLength={500} value={form.message} onChange={(e) => set("message", e.target.value)}
-            placeholder={form.kind === "custom" ? "e.g. Bring your Goal updates to Tuesday's meeting." : "Shown above their details"} />
+            placeholder={form.kind === "custom" ? w("e.g. Bring your Goal updates to Tuesday's meeting.") : "Shown above their details"} />
         </label>
 
         <div className="preview-box">

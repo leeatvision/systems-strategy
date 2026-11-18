@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { GOAL_STATUS, useMembers, type GoalStatus } from "../lib/data";
 import { itemLink } from "../lib/notifications";
 import { Empty, Section } from "../components/ui";
+import { w } from "../lib/terms";
 
 type State = { label: string; badge: string };
 // Each status as a coloured label, using the same colours as the rest of the app.
@@ -16,7 +17,7 @@ const STATES: Record<string, Record<string, State>> = {
   process: { draft: { label: "Draft", badge: "" }, live: { label: "In use", badge: "badge-green" } },
 };
 const KINDS = [
-  { table: "ss_goals", type: "goal", label: "Goals" },
+  { table: "ss_goals", type: "goal", label: w("Goals") },
   { table: "ss_todos", type: "todo", label: "To-Dos" },
   { table: "ss_issues", type: "issue", label: "Issues" },
   { table: "ss_headlines", type: "headline", label: "Headlines" },
@@ -53,7 +54,7 @@ export function Search() {
       <label className="row card card-pad" style={{ gap: 8 }}>
         <SearchIcon size={18} color="var(--color-fg-muted)" />
         <input className="input" style={{ border: 0, outline: 0, padding: 0, minHeight: 32 }} autoFocus
-          placeholder="Goals, To-Dos, Issues, Headlines, Processes…" value={q} onChange={(e) => setQ(e.target.value)} />
+          placeholder={w("Goals, To-Dos, Issues, Headlines, Processes…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
       {results && total === 0 && <Empty>Nothing matches "{q}".</Empty>}
       {results && KINDS.map(({ type, label }) => results[type].length > 0 && (

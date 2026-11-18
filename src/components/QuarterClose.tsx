@@ -4,6 +4,7 @@ import { useMe } from "../lib/session";
 import { isoDay, qLabel, quarterEnd, shiftQuarter, useMembers, type Quarter, type Goal, type GoalStep } from "../lib/data";
 import { Avatar, Chips } from "./ui";
 import { Sheet } from "./Sheet";
+import { w } from "../lib/terms";
 
 type Choice = "done" | "not_done" | "carry" | "leave";
 const CHOICES: { value: Choice; label: string }[] = [
@@ -83,11 +84,11 @@ export function QuarterClose({ q, goals, onClose, onDone }: { q: Quarter; goals:
         if (error) throw error;
         if (copyId) await copyParts(r, copyId).catch(() => partsMissing.push(r.title));
       }
-      if (partsMissing.length) alert(`Carried over, but the steps or resources of ${partsMissing.join(", ")} didn't copy. Add them on the new Goal in ${qLabel(next)}.`);
+      if (partsMissing.length) alert(`Carried over, but the steps or resources of ${partsMissing.join(", ")} didn't copy. Add them on the new ${w("Goal")} in ${qLabel(next)}.`);
       onDone();
     } catch (e) {
       // Goals already handled keep their new status; running it again only offers what's still open.
-      setError(`${friendlyError(e)} Some Goals may already be updated; close this and try again for the rest.`);
+      setError(`${friendlyError(e)} Some ${w("Goals")} may already be updated; close this and try again for the rest.`);
       setBusy(false);
     }
   };
@@ -96,7 +97,7 @@ export function QuarterClose({ q, goals, onClose, onDone }: { q: Quarter; goals:
     <Sheet title={`Close out ${qLabel(q)}`} onClose={onClose}>
       <div className="stack">
         <p className="small muted">
-          For each Goal still on or off track, choose what happened. <strong>Carry over</strong> starts it again in {qLabel(next)} with its
+          For each {w("Goal")} still on or off track, choose what happened. <strong>Carry over</strong> starts it again in {qLabel(next)} with its
           plan, unfinished steps and resources, and marks this one not done.
         </p>
         <ul className="list close-list">

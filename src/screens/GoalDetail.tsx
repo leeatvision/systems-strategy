@@ -13,6 +13,7 @@ import { Sheet } from "../components/Sheet";
 import { History } from "../components/History";
 import { Comments } from "../components/Comments";
 import { Attachments } from "../components/Attachments";
+import { w } from "../lib/terms";
 
 type Form = Omit<Goal, "id" | "company_id" | "completed_at" | "deleted_at" | "archived_at" | "created_at" | "updated_at">;
 
@@ -64,7 +65,7 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
   const load = useCallback(async () => {
     if (isNew || !id) return;
     const { data, error } = await supabase.from("ss_goals").select("*").eq("id", id).maybeSingle();
-    if (error || !data) { setMsg({ ok: false, text: "That Goal wasn't found." }); return; }
+    if (error || !data) { setMsg({ ok: false, text: w("That Goal wasn't found.") }); return; }
     setGoal(data as Goal);
   }, [id, isNew]);
   useEffect(() => { load(); }, [load]);
@@ -111,22 +112,22 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
       company_id: company.id, meeting_id: goal.meeting_id, owner_member_id: goal.owner_member_id, title: goal.title,
       source_type: "goal", source_id: goal.id, created_by: me.id,
     }).select("id").single();
-    setMsg(error ? { ok: false, text: friendlyError(error) } : { ok: true, text: "Added to Issues. The Goal stays as it is.", issueId: data?.id });
+    setMsg(error ? { ok: false, text: friendlyError(error) } : { ok: true, text: w("Added to Issues. The Goal stays as it is."), issueId: data?.id });
   };
 
   const toBin = async () => {
-    if (!goal || !confirm("Move this Goal to the recycle bin? You can restore it from More → Recycle bin.")) return;
+    if (!goal || !confirm(w("Move this Goal to the recycle bin? You can restore it from More → Recycle bin."))) return;
     const { error } = await supabase.from("ss_goals").update({ deleted_at: new Date().toISOString() }).eq("id", goal.id);
     if (error) setMsg({ ok: false, text: friendlyError(error) }); else if (onClose) { onChanged?.(); onClose(); } else navigate("/goals");
   };
 
-  const back = goalId ? <span /> : <Link to="/goals" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />Goals</Link>;
+  const back = goalId ? <span /> : <Link to="/goals" className="row small" style={{ gap: 4 }}><ChevronLeft size={16} />{w("Goals")}</Link>;
 
   if (isNew) {
     return (
       <div className="stack" style={{ maxWidth: 760 }}>
         {back}
-        <h1>New Goal</h1>
+        <h1>New {w("Goal")}</h1>
         <div className="card card-pad">
           <GoalForm initial={draft} isNew onSave={create} />
         </div>
@@ -208,7 +209,7 @@ export function GoalDetail({ goalId, onClose, onChanged }: { goalId?: string; on
       </div>
 
       {editing && (
-        <Sheet title="Edit Goal" onClose={() => setEditing(false)}>
+        <Sheet title={w("Edit Goal")} onClose={() => setEditing(false)}>
           <GoalForm initial={toForm(goal)} onSave={async (form) => {
             const change = Object.fromEntries(Object.entries(form).filter(([k, v]) => goal[k as keyof Goal] !== v)) as Partial<Form>;
             if (change.title !== undefined) change.title = change.title.trim();
@@ -239,7 +240,7 @@ function GoalForm({ initial, isNew, onSave }: { initial: Form; isNew?: boolean; 
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) { setError("Give the Goal a short title."); return; }
+    if (!form.title.trim()) { setError(w("Give the Goal a short title.")); return; }
     setBusy(true);
     const err = await onSave(form);
     setBusy(false);
@@ -303,7 +304,7 @@ function GoalForm({ initial, isNew, onSave }: { initial: Form; isNew?: boolean; 
             <label className="field"><span>Meeting</span>
               <select className="select" value={form.meeting_id ?? ""} onChange={(e) => set("meeting_id", e.target.value || null)}>
                 <option value="">None</option>
-                {meetings.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+                {meetings.map((m) => <option key={m.id} value={m.id}>{w(m.title)}</option>)}
               </select>
             </label>
             <label className="field"><span>Reviewed by</span>
@@ -323,13 +324,13 @@ function GoalForm({ initial, isNew, onSave }: { initial: Form; isNew?: boolean; 
             <input type="checkbox" checked={!form.is_live} onChange={(e) => set("is_live", !e.target.checked)} />
             Draft: keep it out of meetings until it's ready
           </label>
-          <label className="field"><span>Describe the Goal</span>
+          <label className="field"><span>Describe the {w("Goal")}</span>
             <textarea className="input textarea" rows={3} value={form.description ?? ""} onChange={text("description")} />
           </label>
         </div>
       )}
       {error && <p className="error">{error}</p>}
-      <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isNew ? "Create Goal" : "Save"}</button>
+      <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isNew ? w("Create Goal") : "Save"}</button>
       {isNew && <p className="small muted">Add steps, the SMART Plan and resources once it's created.</p>}
     </form>
   );
@@ -371,7 +372,7 @@ function SmartPlan({ goal, reviewer, onSave }: { goal: Goal; reviewer: Member | 
           {filled.map(({ key, label }) => <div key={key}><dt>{label}</dt><dd>{goal[key] as string}</dd></div>)}
           {reviewedBy && <div><dt>Reviewed by</dt><dd>{reviewedBy}</dd></div>}
         </dl>
-      ) : <p className="small muted">Not filled in yet. Answer the five questions to make the Goal clear and checkable.</p>}
+      ) : <p className="small muted">Not filled in yet. Answer the five questions to make the {w("Goal")} clear and checkable.</p>}
       <div>
         <button type="button" className="btn btn-sm" onClick={() => setEdit(Object.fromEntries(SMART.map(({ key }) => [key, goal[key]])) as Partial<Form>)}>
           <Pencil size={14} />{filled.length ? "Edit SMART Plan" : "Fill in SMART Plan"}
@@ -427,7 +428,7 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
     <section className="stack" style={{ gap: 8 }}>
       <h2 className="steps-head">Steps{steps.length > 0 && <span className="count">{done}/{steps.length}</span>}</h2>
       <div className="card">
-        {steps.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>No steps yet. Break the Goal into dated steps; the progress bar fills as they're ticked off.</p>}
+        {steps.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>No steps yet. Break the {w("Goal")} into dated steps; the progress bar fills as they're ticked off.</p>}
         <ul className="list steps">
           {steps.map((s, i) => editing === s.id ? (
             <li key={s.id} className="step-editing">
@@ -469,7 +470,7 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
               <button className="btn btn-sm btn-primary" disabled={!newText.trim()}><Plus size={16} />Add</button>
             </div>
           </form>
-        ) : <p className="small muted card-pad" style={{ margin: 0 }}>20 steps is the most a Goal can have.</p>}
+        ) : <p className="small muted card-pad" style={{ margin: 0 }}>20 steps is the most a {w("Goal")} can have.</p>}
       </div>
       {error && <p className="error">{error}</p>}
     </section>

@@ -8,8 +8,9 @@ import { addDays, fmtDay, today, useMeetings, useMembers, useOpenParam, type Iss
 import { FilterButton, FilterPanel, FilterSummary, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { Avatar, Empty, Menu, OwnerSelect, Section } from "../components/ui";
 import { ItemPanel } from "../components/ItemPanel";
+import { w } from "../lib/terms";
 
-const SOURCE: Record<string, string> = { goal: "From a Goal", todo: "From a To-Do", headline: "From a Headline", measurable: "From Key Numbers" };
+const SOURCE: Record<string, string> = { goal: w("From a Goal"), todo: "From a To-Do", headline: "From a Headline", measurable: w("From Key Numbers") };
 
 export function Issues() {
   const { me, company } = useMe();
@@ -66,8 +67,8 @@ export function Issues() {
     { key: "owner", label: "Owner", options: ownerOptions(members, me.id) },
     { key: "status", label: "Status", options: [{ value: "open", label: "Open" }, { value: "solved", label: "Resolved" }, { value: "all", label: "Open and resolved" }] },
     { key: "top", label: "Top 3", options: [{ value: "all", label: "Any" }, { value: "top", label: "Top 3 only" }, { value: "rest", label: "Not in top 3" }] },
-    { key: "source", label: "Came from", options: [{ value: "all", label: "Anywhere" }, { value: "none", label: "Added directly" }, { value: "goal", label: "A Goal" },
-      { value: "todo", label: "A To-Do" }, { value: "headline", label: "A Headline" }, { value: "measurable", label: "Key Numbers" }] },
+    { key: "source", label: "Came from", options: [{ value: "all", label: "Anywhere" }, { value: "none", label: "Added directly" }, { value: "goal", label: w("A Goal") },
+      { value: "todo", label: "A To-Do" }, { value: "headline", label: "A Headline" }, { value: "measurable", label: w("Key Numbers") }] },
   ];
   const open = list.filter((i) => i.status === "open")
     .sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9) || a.sort_order - b.sort_order);

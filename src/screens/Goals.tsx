@@ -12,6 +12,7 @@ import {
 import { Avatar, Empty, Menu, Progress, Section } from "../components/ui";
 import { QuarterClose } from "../components/QuarterClose";
 import { DATE_OPTIONS, FilterButton, FilterPanel, FilterSummary, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
+import { w } from "../lib/terms";
 
 const GROUPS: GoalStatus[] = ["off_track", "on_track", "done", "not_done", "canceled"];
 const TYPE_GROUPS: GoalType[] = ["company", "department", "personal"];
@@ -117,12 +118,12 @@ export function Goals() {
   return (
     <div className="stack">
       <div className="page-head goals-head">
-        <h1>Goals</h1>
+        <h1>{w("Goals")}</h1>
         <span className="spacer" />
-        <Link to="/goals/new" className="btn btn-primary btn-sm desktop-only"><Plus size={16} />New Goal</Link>
+        <Link to="/goals/new" className="btn btn-primary btn-sm desktop-only"><Plus size={16} />New {w("Goal")}</Link>
       </div>
-      <p className="small muted page-sub no-print">Ninety-day goals that leadership agree are worth focusing on. Do not add or remove any Goals. If Goals reach "Off Track" status, create an Issue for the leadership team to solve why the Goal is not on track.</p>
-      <h2 className="print-only">Goals · {qLabel(q)}</h2>
+      <p className="small muted page-sub no-print">Ninety-day {w("goals")} that leadership agree are worth focusing on. Do not add or remove any {w("Goals")}. If {w("Goals")} reach "Off Track" status, create an Issue for the leadership team to solve why the {w("Goal")} is not on track.</p>
+      <h2 className="print-only">{w("Goals")} · {qLabel(q)}</h2>
       <FilterSummary fields={fields} values={f} defaults={GOAL_DEFAULTS} extra={view === "timeline" ? "Timeline" : undefined} />
 
       <div className="toolbar no-print">
@@ -137,7 +138,7 @@ export function Goals() {
         <FilterButton open={showFilters} active={filters.active} onToggle={() => setShowFilters(!showFilters)} />
         <Menu items={[
           { label: `Close out ${qLabel(q)}`, icon: <CalendarCheck size={16} />, onSelect: () => setClosing(true), hidden: !(canClose && toClose.length > 0) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(`Goals ${qLabel(q)}`) },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(`${w("Goals")} ${qLabel(q)}`) },
           { label: "Export CSV", icon: <Download size={16} />, onSelect: exportCsv },
         ]} />
       </div>
@@ -151,7 +152,7 @@ export function Goals() {
       )}
       {remind && (
         <div className="close-banner no-print">
-          <span>{whenText} · {toClose.length} Goal{toClose.length === 1 ? "" : "s"} still open</span>
+          <span>{whenText} · {toClose.length} {w("Goal")}{toClose.length === 1 ? "" : "s"} still open</span>
           <button type="button" className="link-btn" onClick={() => setClosing(true)}>Close out</button>
         </div>
       )}
@@ -160,7 +161,7 @@ export function Goals() {
       {goals && shown.length > 0 && <GoalsPrint goals={shown} groupBy={f.sort === "status" || f.sort === "type" ? f.sort : null} byId={byId} tally={tally} isOpen={isOpen} />}
       <div className={view === "timeline" ? "" : "no-print"}>
       {goals === null ? <p className="muted">Loading…</p> : shown.length === 0 ? (
-        <Empty>{goals.length ? "No Goals match these filters." : `No Goals for ${qLabel(q)}.`}</Empty>
+        <Empty>{goals.length ? w("No Goals match these filters.") : `No ${w("Goals")} for ${qLabel(q)}.`}</Empty>
       ) : view === "timeline" ? (
         <div className="card card-pad"><Timeline goals={shown} steps={steps} q={q} onOpen={(id) => navigate(`/goals/${id}`)} /></div>
       ) : f.sort === "type" ? TYPE_GROUPS.map((g) => {
@@ -184,7 +185,7 @@ export function Goals() {
       })}
       </div>
       <div className="fab-space" aria-hidden />
-      <Link to="/goals/new" className="fab no-print" aria-label="New Goal"><Plus size={20} />New Goal</Link>
+      <Link to="/goals/new" className="fab no-print" aria-label={w("New Goal")}><Plus size={20} />New {w("Goal")}</Link>
     </div>
   );
 }
@@ -197,7 +198,7 @@ function GoalsPrint({ goals, groupBy, byId, tally, isOpen }: {
   const table = (list: Goal[]) => (
     <table className="kn-table goals-table">
       <thead><tr>
-        <th className="gt-title">Goal</th><th>Owner</th><th>Type</th><th>Due</th><th>Steps</th><th>Status</th>
+        <th className="gt-title">{w("Goal")}</th><th>Owner</th><th>Type</th><th>Due</th><th>Steps</th><th>Status</th>
       </tr></thead>
       <tbody>
         {list.map((r) => {

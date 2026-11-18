@@ -7,6 +7,7 @@ import { fmtDay, useMembers } from "../lib/data";
 import { Avatar, Empty, Menu, OwnerChips } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 import { ZoomView } from "../components/ZoomView";
+import { w } from "../lib/terms";
 
 interface Chart { id: string; title: string; status: "draft" | "official" | "archived"; published_at: string | null; updated_at: string }
 interface Position {
@@ -66,7 +67,7 @@ export function ChartScreen() {
 
   const createChart = async (from: Chart | null) => {
     const { data, error } = await supabase.from("ss_org_charts")
-      .insert({ company_id: company.id, title: from?.title ?? "Org Chart", status: "draft", created_by: me.id }).select("id").single();
+      .insert({ company_id: company.id, title: from?.title ?? w("Org Chart"), status: "draft", created_by: me.id }).select("id").single();
     if (error) { setError(friendlyError(error)); return; }
     if (from) {
       // Copy parents before children so each copy can point at its parent's copy.
@@ -90,7 +91,7 @@ export function ChartScreen() {
     load(data.id);
   };
   const publish = async () => {
-    if (!chart || !confirm("Make this the official Org Chart? The current official one is kept as an archived version.")) return;
+    if (!chart || !confirm(w("Make this the official Org Chart? The current official one is kept as an archived version."))) return;
     const official = charts?.find((c) => c.status === "official");
     if (official) await supabase.from("ss_org_charts").update({ status: "archived" }).eq("id", official.id);
     const { error } = await supabase.from("ss_org_charts").update({ status: "official", published_at: new Date().toISOString() }).eq("id", chart.id);
@@ -101,7 +102,7 @@ export function ChartScreen() {
   if (!chart) {
     return (
       <div className="stack">
-        <h1>Org Chart</h1>
+        <h1>{w("Org Chart")}</h1>
         <Empty>No chart yet.{isOwner ? " Start with the top Positions and build down." : " An owner can start it."}</Empty>
         {isOwner && <button className="btn btn-primary" onClick={() => createChart(null)}><Plus size={16} />Start the chart</button>}
         {error && <p className="error">{error}</p>}
@@ -217,7 +218,7 @@ export function ChartScreen() {
   return (
     <div className="stack">
       <div className="page-head goals-head">
-        <h1>{chart.title}</h1>
+        <h1>{w(chart.title)}</h1>
         <span className="spacer" />
         <Menu items={[
           { label: "Add a Top Position", icon: <Plus size={16} />, onSelect: () => setEditing({ position: null, parent: null }), hidden: !isOwner },
@@ -244,7 +245,7 @@ export function ChartScreen() {
             <button className="btn btn-sm btn-primary" onClick={publish}><BadgeCheck size={16} />Make official</button>
           </div>
         )}
-        <p className="small muted" style={{ margin: 0 }}>{isOwner ? "Pencil to edit, + to add under, drag the handle to move. Pinch or use the buttons to zoom." : "Only owners can change the Org Chart. Pinch or use the buttons to zoom."}</p>
+        <p className="small muted" style={{ margin: 0 }}>{isOwner ? "Pencil to edit, + to add under, drag the handle to move. Pinch or use the buttons to zoom." : w("Only owners can change the Org Chart. Pinch or use the buttons to zoom.")}</p>
       </div>
       {error && <p className="error">{error}</p>}
       {drag && <div data-drop="top" className={`drop-top no-print${drag.over === "top" ? " drop-ok" : ""}`}>Drop here to make it a top Position</div>}
