@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Bell, ChartLine, CircleAlert, ClipboardCheck, Compass, Home, ListOrdered, LogOut, Megaphone, Menu, Mountain, Network, Search, SquareCheck, Trash2, User, Users, Video, AlarmClock } from "lucide-react";
+import { BarChart3, Bell, ChartLine, CircleAlert, ClipboardCheck, Compass, Home, ListOrdered, LogOut, Megaphone, Menu, Mountain, Network, Search, SquareCheck, Trash2, User, UserCheck, Users, Video, AlarmClock } from "lucide-react";
 import { useUnreadCount } from "../lib/notifications";
 import { OfflineBanner } from "./OfflineBanner";
 import { useMe, useSession } from "../lib/session";
@@ -25,7 +25,11 @@ const more = [
   { to: "/checkups", label: "Checkups", icon: ClipboardCheck },
   { to: "/insights", label: "Insights", icon: ChartLine },
   { to: "/reminders", label: "Reminders", icon: AlarmClock },
+  { to: "/people-review", label: w("People Review"), icon: UserCheck, leadersOnly: true },
 ];
+/** Links this person can use: some are for owners and leaders only. */
+export const linksFor = <T extends { leadersOnly?: boolean }>(links: T[], role: string) =>
+  links.filter((l) => !l.leadersOnly || role === "owner" || role === "leader");
 
 export function Shell() {
   const { me, company, canEdit } = useMe();
@@ -46,7 +50,7 @@ export function Shell() {
           <NavLink key={to} to={to} end={end} className="side-link"><Icon size={18} />{label}</NavLink>
         ))}
         <div className="side-section label">More</div>
-        {more.map(({ to, label, icon: Icon }) => (
+        {linksFor(more, me.role).map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className="side-link"><Icon size={18} />{label}</NavLink>
         ))}
         <span className="spacer" />

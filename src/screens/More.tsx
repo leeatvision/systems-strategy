@@ -1,15 +1,17 @@
 import { Link } from "react-router-dom";
 import { ChevronRight, LogOut } from "lucide-react";
-import { moreLinks } from "../components/Shell";
+import { linksFor, moreLinks } from "../components/Shell";
+import { useMe } from "../lib/session";
 import { useSession } from "../lib/session";
 
 export function More() {
   const { signOut } = useSession();
+  const { me } = useMe();
   return (
     <div className="stack">
       <h1>More</h1>
       <ul className="card list">
-        {moreLinks.map(({ to, label, icon: Icon }) => (
+        {linksFor(moreLinks, me.role).map(({ to, label, icon: Icon }) => (
           <li key={to}><Link to={to} className="row" style={{ color: "inherit", flex: 1 }}>
             <Icon size={20} color="var(--color-fg-muted)" /><span style={{ flex: 1 }}>{label}</span><ChevronRight size={18} color="var(--color-fg-muted)" />
           </Link></li>

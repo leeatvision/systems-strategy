@@ -28,6 +28,7 @@ import { Processes, ProcessDetail } from "./screens/Processes";
 import { Checkups, CheckupDetail } from "./screens/Checkups";
 import { NotificationSettings } from "./screens/NotificationSettings";
 import { Reminders } from "./screens/Reminders";
+import { PeopleReviewDetail, PeopleReviews } from "./screens/PeopleReview";
 
 function Gate() {
   const { state } = useSession();
@@ -69,6 +70,8 @@ function Gate() {
           <Route path="checkups" element={<Checkups />} />
           <Route path="checkups/:id" element={<CheckupDetail />} />
           <Route path="insights" element={<Insights />} />
+          <Route path="people-review" element={<PeopleReviews />} />
+          <Route path="people-review/:id" element={<PeopleReviewDetail />} />
           <Route path="people" element={<People />} />
           <Route path="profile" element={<Profile />} />
           <Route path="more" element={<More />} />

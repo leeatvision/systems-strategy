@@ -33,7 +33,11 @@ export function RecycleBin() {
     const { data: past } = await supabase.from("ss_meeting_sessions").select("id, started_at, created_by, deleted_at, meeting:ss_meetings(title)").not("deleted_at", "is", null);
     const sessions = ((past ?? []) as unknown as { id: string; started_at: string; created_by: string | null; deleted_at: string; meeting: { title: string } | null }[])
       .map((r) => ({ table: "ss_meeting_sessions", label: "Past meeting", id: r.id, title: `${w(r.meeting?.title) ?? "Meeting"} · ${fmtDay(r.started_at, true)}`, owner_member_id: r.created_by, deleted_at: r.deleted_at }));
-    setItems([...results.flat(), ...sessions].sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)));
+    // People reviews (owners and leaders only see these): named by their date when they have no name.
+    const { data: revs } = await supabase.from("ss_people_reviews").select("id, title, reviewed_on, created_by, deleted_at").not("deleted_at", "is", null);
+    const reviews = ((revs ?? []) as { id: string; title: string | null; reviewed_on: string; created_by: string | null; deleted_at: string }[])
+      .map((r) => ({ table: "ss_people_reviews", label: w("People Review"), id: r.id, title: r.title || fmtDay(r.reviewed_on, true), owner_member_id: r.created_by, deleted_at: r.deleted_at }));
+    setItems([...results.flat(), ...sessions, ...reviews].sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)));
   }, []);
   useEffect(() => { load(); }, [load]);
 
