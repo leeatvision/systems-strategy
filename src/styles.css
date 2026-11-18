@@ -974,3 +974,16 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
 }
 .org-tree .ic-tree { display: inline-flex; } .org-tree .ic-list { display: none; }
 .content:has(.zoom-view) { max-width: none; }
+
+/* Printed Goals table */
+@media print {
+  .goals-table th, .goals-table td { white-space: normal; text-align: left; vertical-align: top; }
+  .goals-table .gt-title { width: 38%; }
+  .goals-table th:nth-child(2) { width: 15%; } .goals-table th:nth-child(3) { width: 11%; } .goals-table th:nth-child(4) { width: 12%; }
+  .goals-table th:nth-child(5) { width: 9%; } .goals-table th:nth-child(6) { width: 15%; }
+  .gt-name { font-weight: 600; color: var(--print-ink); font-size: 11.5px; }
+  .gt-finish { font-size: 9.5px; color: var(--print-muted); margin-top: 2px; }
+  .gt-draft { color: var(--print-muted); font-weight: 400; }
+  .gt-late { color: #a32f2f; font-weight: 600; }
+  .goals-table .badge { font-size: 9.5px; }
+}

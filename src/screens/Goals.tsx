@@ -154,6 +154,8 @@ export function Goals() {
       )}
       {closing && <QuarterClose q={q} goals={toClose} onClose={() => setClosing(false)} onDone={() => { setClosing(false); setReload((n) => n + 1); }} />}
 
+      {goals && shown.length > 0 && <GoalsPrint goals={shown} grouped={f.sort === "status"} byId={byId} tally={tally} isOpen={isOpen} />}
+      <div className={view === "timeline" ? "" : "no-print"}>
       {goals === null ? <p className="muted">Loading…</p> : shown.length === 0 ? (
         <Empty>{goals.length ? "No Goals match these filters." : `No Goals for ${qLabel(q)}.`}</Empty>
       ) : view === "timeline" ? (
@@ -169,8 +171,56 @@ export function Goals() {
           </Section>
         );
       })}
+      </div>
       <div className="fab-space" aria-hidden />
       <Link to="/goals/new" className="fab no-print" aria-label="New Goal"><Plus size={20} />New Goal</Link>
+    </div>
+  );
+}
+
+/** The printed Goals: a table with owner, type, due date, steps and status, grouped like the screen. */
+function GoalsPrint({ goals, grouped, byId, tally, isOpen }: {
+  goals: Goal[]; grouped: boolean; byId: ReturnType<typeof useMembers>["byId"];
+  tally: (id: string) => { done: number; total: number }; isOpen: (r: Goal) => boolean;
+}) {
+  const table = (list: Goal[]) => (
+    <table className="kn-table goals-table">
+      <thead><tr>
+        <th className="gt-title">Goal</th><th>Owner</th><th>Type</th><th>Due</th><th>Steps</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        {list.map((r) => {
+          const o = byId(r.owner_member_id);
+          const t = tally(r.id);
+          const late = isOpen(r) && r.due_date && r.due_date < today();
+          return (
+            <tr key={r.id}>
+              <td className="gt-title">
+                <div className="gt-name">{r.title}{!r.is_live && <span className="gt-draft"> · Draft</span>}</div>
+                {r.finish_line && <div className="gt-finish">Finish line: {r.finish_line}{r.finish_line_due ? ` · by ${fmtDay(r.finish_line_due)}` : ""}</div>}
+              </td>
+              <td>{o ? fullName(o) : "Unassigned"}</td>
+              <td>{GOAL_TYPE[r.goal_type]}</td>
+              <td className={late ? "gt-late" : ""}>{r.due_date ? fmtDay(r.due_date, true) : "—"}</td>
+              <td>{t.total ? `${t.done} of ${t.total}` : "—"}</td>
+              <td><span className={`badge ${GOAL_STATUS[r.status].badge}`}>{GOAL_STATUS[r.status].label}</span></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+  return (
+    <div className="print-block goals-print">
+      {grouped ? GROUPS.map((g) => {
+        const list = goals.filter((r) => r.status === g);
+        return list.length ? (
+          <section key={g} className="kn-print-section">
+            <h3 className="label section-label">{GOAL_STATUS[g].label} <span className="count">{list.length}</span></h3>
+            {table(list)}
+          </section>
+        ) : null;
+      }) : table(goals)}
     </div>
   );
 }
