@@ -306,7 +306,7 @@ export function PeopleReviewDetail() {
               <tr>
                 <th className="pr-name">Name</th>
                 {traits.map((t) => <th key={t.id} className="pr-trait" title={w(t.title)}><span>{w(t.title)}</span></th>)}
-                <th className="pr-sum">At the bar</th>
+                <th className="pr-sum pr-trait"><span>At the bar</span></th>
               </tr>
             </thead>
             <tbody>
@@ -390,11 +390,11 @@ function PersonHistory({ who, reviews, people, onClose }: {
   const cols: string[] = [];
   for (const { r } of rows) for (const t of r.traits) if (!cols.includes(w(t.title))) cols.push(w(t.title));
   return (
-    <Sheet title={nameOf(who, byId)} onClose={onClose}>
+    <Sheet title={nameOf(who, byId)} onClose={onClose} wide>
       {rows.length === 0 ? <Empty>No reviews yet.</Empty> : (
         <div className="pr-wrap">
           <table className="pr-table pr-history">
-            <thead><tr><th className="pr-name">Review</th>{cols.map((c) => <th key={c} className="pr-trait" title={c}><span>{c}</span></th>)}</tr></thead>
+            <thead><tr><th className="pr-name">Review</th>{cols.map((c) => <th key={c} className="pr-trait" title={c}><span>{c}</span></th>)}<th className="pr-gap" aria-hidden><i className="pr-gap-in" /></th></tr></thead>
             <tbody>
               {rows.map(({ p, r }) => (
                 <tr key={p.id}>
@@ -404,6 +404,7 @@ function PersonHistory({ who, reviews, people, onClose }: {
                     const v = t ? p.ratings[t.id] : undefined;
                     return <td key={c} className={`pr-cell ${t ? ratingClass(passes(t, v)) : "pr-none"}`}><span>{t ? v ?? "" : "·"}</span></td>;
                   })}
+                  <td className="pr-gap" aria-hidden />
                 </tr>
               ))}
             </tbody>

@@ -2,10 +2,10 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
 /** Bottom sheet on phones, centered dialog on wider screens. */
-export function Sheet({ title, onClose, children, tools }: { title: string; onClose: () => void; children: ReactNode; tools?: ReactNode }) {
+export function Sheet({ title, onClose, children, tools, wide }: { title: string; onClose: () => void; children: ReactNode; tools?: ReactNode; wide?: boolean }) {
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className={`sheet${wide ? " sheet-wide" : ""}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="row" style={{ marginBottom: 16 }}>
           <h2>{title}</h2>
           <span className="spacer" />

@@ -1005,14 +1005,19 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
 .pr-table .pr-name { text-align: left; padding: 8px 10px; white-space: nowrap; position: sticky; left: 0; background: var(--color-surface, var(--color-bg)); z-index: 1; min-width: 140px; }
 .pr-table td.pr-name { display: flex; align-items: center; gap: 6px; border-bottom: 0; }
 .pr-table tbody tr { border-bottom: 1px solid var(--color-border); }
-.pr-trait { height: 120px; width: 46px; min-width: 46px; vertical-align: bottom; padding-bottom: 6px !important; }
-.pr-trait span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--color-fg-muted); max-height: 112px; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+/* Trait names slant up to the right, like a printed people chart. */
+.pr-trait { position: relative; height: 128px; width: 46px; min-width: 46px; vertical-align: bottom; }
+.pr-trait span { position: absolute; left: calc(50% - 4px); bottom: 10px; transform-origin: 0 100%; transform: rotate(-50deg);
+  white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--color-fg-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.pr-table thead th { vertical-align: bottom; padding-bottom: 10px; }
+.pr-gap { width: 90px; min-width: 90px; border-bottom: 0 !important; }
+.pr-gap-in { display: block; width: 90px; }
 .pr-cell { width: 46px; border-left: 1px solid var(--color-border); }
 .pr-cell button, .pr-cell > span { display: block; width: 100%; min-height: 40px; line-height: 40px; border: 0; background: none; font: inherit; font-weight: 700; cursor: pointer; color: inherit; }
 .pr-pass { background: color-mix(in srgb, var(--brand-500, #3a9a3a) 18%, transparent); color: var(--brand-800, #245c24); }
 .pr-fail { background: color-mix(in srgb, var(--color-danger, #c33) 14%, transparent); color: var(--color-danger, #a32f2f); }
 .pr-none { color: var(--color-fg-muted); }
-.pr-sum { width: 80px; padding: 0 10px !important; white-space: nowrap; font-weight: 600; font-size: 13px; }
+.pr-sum { width: 96px; min-width: 96px; padding: 0 10px !important; white-space: nowrap; font-weight: 600; font-size: 13px; }
 .pr-bar { border-left: 1px solid var(--color-border); padding: 4px 2px !important; }
 .pr-bar select { font: inherit; font-weight: 700; border: 1px solid var(--color-border-strong); border-radius: 6px; padding: 2px; background: none; color: inherit; }
 .pr-bar-print { display: none; font-weight: 700; }
@@ -1030,5 +1035,7 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
   .pr-bar-print { display: inline; }
   .pr-table { font-size: 11px; }
   .pr-cell button { min-height: 26px; line-height: 26px; }
-  .pr-trait { height: 100px; }
+  .pr-trait { height: 112px; }
+  .pr-trait span { font-size: 11px; }
 }
+.sheet.sheet-wide { max-width: 760px; }
