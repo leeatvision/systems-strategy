@@ -14,6 +14,7 @@ import { QuarterClose } from "../components/QuarterClose";
 import { DATE_OPTIONS, FilterButton, FilterPanel, FilterSummary, dateMatches, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 
 const GROUPS: GoalStatus[] = ["off_track", "on_track", "done", "not_done", "canceled"];
+const TYPE_GROUPS: GoalType[] = ["company", "department", "personal"];
 
 export function Goals() {
   const { me } = useMe();
@@ -74,7 +75,8 @@ export function Goals() {
     .sort((a, b) => f.sort === "due" ? (a.due_date ?? "9").localeCompare(b.due_date ?? "9")
       : f.sort === "finish" ? (a.finish_line_due ?? "9").localeCompare(b.finish_line_due ?? "9")
       : f.sort === "owner" ? (byId(a.owner_member_id)?.first_name ?? "").localeCompare(byId(b.owner_member_id)?.first_name ?? "")
-      : f.sort === "title" ? a.title.localeCompare(b.title) : 0);
+      : f.sort === "title" ? a.title.localeCompare(b.title)
+      : f.sort === "type" ? GROUPS.indexOf(a.status) - GROUPS.indexOf(b.status) || (a.due_date ?? "9").localeCompare(b.due_date ?? "9") : 0);
   const fields = [
     { key: "owner", label: "Owner", options: ownerOptions(members, me.id) },
     { key: "type", label: "Type", options: [{ value: "all", label: "All types" }, ...(Object.keys(GOAL_TYPE) as GoalType[]).map((t) => ({ value: t, label: GOAL_TYPE[t] }))] },
@@ -82,7 +84,7 @@ export function Goals() {
       ...(Object.keys(GOAL_STATUS) as GoalStatus[]).map((s) => ({ value: s, label: GOAL_STATUS[s].label }))] },
     { key: "due", label: "Due date", options: DATE_OPTIONS },
     { key: "finish", label: "Finish line", options: [...DATE_OPTIONS.map((o) => o.value === "none" ? { ...o, label: "No finish line date" } : o), { value: "reached", label: "Reached" }] },
-    { key: "sort", label: "Sort by", options: [{ value: "status", label: "Status (grouped)" }, { value: "due", label: "Due date" },
+    { key: "sort", label: "Sort by", options: [{ value: "status", label: "Status (grouped)" }, { value: "type", label: "Type (grouped)" }, { value: "due", label: "Due date" },
       { value: "finish", label: "Finish line date" }, { value: "owner", label: "Owner" }, { value: "title", label: "Name" }] },
   ];
   const row = (r: Goal) => (
@@ -154,13 +156,21 @@ export function Goals() {
       )}
       {closing && <QuarterClose q={q} goals={toClose} onClose={() => setClosing(false)} onDone={() => { setClosing(false); setReload((n) => n + 1); }} />}
 
-      {goals && shown.length > 0 && <GoalsPrint goals={shown} grouped={f.sort === "status"} byId={byId} tally={tally} isOpen={isOpen} />}
+      {goals && shown.length > 0 && <GoalsPrint goals={shown} groupBy={f.sort === "status" || f.sort === "type" ? f.sort : null} byId={byId} tally={tally} isOpen={isOpen} />}
       <div className={view === "timeline" ? "" : "no-print"}>
       {goals === null ? <p className="muted">Loading…</p> : shown.length === 0 ? (
         <Empty>{goals.length ? "No Goals match these filters." : `No Goals for ${qLabel(q)}.`}</Empty>
       ) : view === "timeline" ? (
         <div className="card card-pad"><Timeline goals={shown} steps={steps} q={q} onOpen={(id) => navigate(`/goals/${id}`)} /></div>
-      ) : f.sort !== "status" ? (
+      ) : f.sort === "type" ? TYPE_GROUPS.map((g) => {
+        const list = shown.filter((r) => r.goal_type === g);
+        if (!list.length) return null;
+        return (
+          <Section key={g} title={GOAL_TYPE[g]} count={list.length}>
+            <ul className="card list">{list.map(row)}</ul>
+          </Section>
+        );
+      }) : f.sort !== "status" ? (
         <ul className="card list">{shown.map(row)}</ul>
       ) : GROUPS.map((g) => {
         const list = shown.filter((r) => r.status === g);
@@ -179,8 +189,8 @@ export function Goals() {
 }
 
 /** The printed Goals: a table with owner, type, due date, steps and status, grouped like the screen. */
-function GoalsPrint({ goals, grouped, byId, tally, isOpen }: {
-  goals: Goal[]; grouped: boolean; byId: ReturnType<typeof useMembers>["byId"];
+function GoalsPrint({ goals, groupBy, byId, tally, isOpen }: {
+  goals: Goal[]; groupBy: "status" | "type" | null; byId: ReturnType<typeof useMembers>["byId"];
   tally: (id: string) => { done: number; total: number }; isOpen: (r: Goal) => boolean;
 }) {
   const table = (list: Goal[]) => (
@@ -212,11 +222,11 @@ function GoalsPrint({ goals, grouped, byId, tally, isOpen }: {
   );
   return (
     <div className="print-block goals-print">
-      {grouped ? GROUPS.map((g) => {
-        const list = goals.filter((r) => r.status === g);
+      {groupBy ? (groupBy === "status" ? GROUPS : TYPE_GROUPS).map((g) => {
+        const list = goals.filter((r) => (groupBy === "status" ? r.status : r.goal_type) === g);
         return list.length ? (
           <section key={g} className="kn-print-section">
-            <h3 className="label section-label">{GOAL_STATUS[g].label} <span className="count">{list.length}</span></h3>
+            <h3 className="label section-label">{groupBy === "status" ? GOAL_STATUS[g as GoalStatus].label : GOAL_TYPE[g as GoalType]} <span className="count">{list.length}</span></h3>
             {table(list)}
           </section>
         ) : null;
