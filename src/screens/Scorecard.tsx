@@ -192,6 +192,7 @@ export function Scorecard() {
         <span className="spacer" />
         <button className="btn btn-primary btn-sm desktop-only" onClick={() => setEditing("new")}><Plus size={16} />New {w("Key Number")}</button>
       </div>
+      <p className="small muted page-sub no-print">{w("Key Number")}s that act as leading indicators for us to determine whether we are on track to accomplish goals and solve problems. These are dynamic and can cover different timeframes or be added or removed over time.</p>
       <h2 className="print-only">{w(card.title)}</h2>
       <div className="toolbar no-print">
         <span className="seg" role="group" aria-label="View">

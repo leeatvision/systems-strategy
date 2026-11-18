@@ -8,7 +8,7 @@ import { useMe } from "../lib/session";
 import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal } from "../lib/data";
 import { Empty, Fold, Menu } from "../components/ui";
 import { Attachments } from "../components/Attachments";
-import { w } from "../lib/terms";
+import { w, wLong } from "../lib/terms";
 
 interface Version {
   id: string; company_id: string; title: string; status: "draft" | "official" | "archived";
@@ -109,7 +109,7 @@ export function VisionPlan() {
   const setField = (k: VersionField) => (value: string | null) => v && run(supabase.from("ss_plan_versions").update({ [k]: value }).eq("id", v.id));
 
   const create = async (from: Version | null) => {
-    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: w("Vision and Plan") };
+    const base = from ? Object.fromEntries(COPY_FIELDS.map((k) => [k, from[k]])) : { title: "Vision and Plan" };
     const { data, error } = await supabase.from("ss_plan_versions").insert({ ...base, company_id: company.id, status: "draft", created_by: me.id }).select("id").single();
     if (error) { setError(friendlyError(error)); return; }
     if (from) {
@@ -120,7 +120,7 @@ export function VisionPlan() {
     load(data.id);
   };
   const publish = async () => {
-    if (!v || !confirm(w("Make this the official Vision and Plan? The current official one is kept as an archived version."))) return;
+    if (!v || !confirm(wLong("Make this the official Vision and Plan? The current official one is kept as an archived version."))) return;
     const official = versions?.find((x) => x.status === "official");
     if (official) {
       const { error } = await supabase.from("ss_plan_versions").update({ status: "archived" }).eq("id", official.id);
@@ -134,9 +134,9 @@ export function VisionPlan() {
   if (!v) {
     return (
       <div className="stack">
-        <h1>{w("Vision and Plan")}</h1>
-        <Empty>No {w("Vision and Plan")} yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
-        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the {w("Vision and Plan")}</button>
+        <h1>{wLong("Vision and Plan")}</h1>
+        <Empty>No {wLong("Vision and Plan")} yet. Start one and fill it in together; make it official when the leadership team agrees.</Empty>
+        <button className="btn btn-primary" onClick={() => create(null)}><Plus size={16} />Start the {wLong("Vision and Plan")}</button>
         {error && <p className="error">{error}</p>}
       </div>
     );
@@ -159,11 +159,11 @@ export function VisionPlan() {
     <PlanPrint v={v} list={list} goals={goals} issues={issues} byId={byId} quarter={q} />
     <div className="stack plan goal-page plan-screen">
       <div className="page-head goals-head">
-        <h1>{w(v.title)}</h1>
+        <h1>{wLong(v.title)}</h1>
         <span className="spacer" />
         <Menu items={[
           { label: allOpen ? "Close all sections" : "Open all sections", icon: <ChevronsUpDown size={16} />, onSelect: () => setOpen(allOpen ? new Set() : new Set(SECTIONS)) },
-          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(v.title) },
+          { label: "Print", icon: <Printer size={16} />, onSelect: () => printPage(wLong(v.title)) },
           { label: "Make a draft copy", icon: <Copy size={16} />, onSelect: () => create(v), hidden: v.status !== "official" },
           { label: "Archive draft", icon: <Archive size={16} />, onSelect: discard, hidden: v.status === "official", danger: true },
         ]} />
@@ -251,8 +251,8 @@ export function VisionPlan() {
           </Fold>
         </div>
       )}
-      {v.status === "official" && <p className="small muted no-print">Edits here change the official {w("Vision and Plan")} directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
-      {!isOwner && <p className="small muted no-print">Only owners can delete {w("Vision and Plan")} versions permanently; drafts can be archived by anyone.</p>}
+      {v.status === "official" && <p className="small muted no-print">Edits here change the official {wLong("Vision and Plan")} directly. For bigger rewrites, use ⋮ → Make a draft copy, and make it official when everyone agrees.</p>}
+      {!isOwner && <p className="small muted no-print">Only owners can delete {wLong("Vision and Plan")} versions permanently; drafts can be archived by anyone.</p>}
     </div>
     </>
   );
@@ -421,7 +421,7 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
   return (
     <div className="plan-print print-block">
       <div className="pp-title">
-        <h2>{w(v.title)}</h2>
+        <h2>{wLong(v.title)}</h2>
         <span>{status} · updated {fmtDay(v.updated_at, true)}</span>
       </div>
 
@@ -451,7 +451,7 @@ function PlanPrint({ v, list, goals, issues, byId, quarter }: {
       </div>
 
       <div className="pp-page pp-page-two">
-        <div className="pp-runhead">{w(v.title)} · {status}</div>
+        <div className="pp-runhead">{wLong(v.title)} · {status}</div>
         <div className="pp-band">Plan</div>
         <div className="pp-row"><div className="pp-label">1-Year Plan</div><div className="pp-body">
           {targets("one_year", "Date")}
