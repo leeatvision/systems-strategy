@@ -1039,3 +1039,15 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
   .pr-trait span { font-size: 11px; }
 }
 .sheet.sheet-wide { max-width: 760px; }
+
+/* Key Numbers over time */
+.badge.kn-retired { background: var(--gray-100, #eee); color: var(--color-fg-muted); margin-left: 6px; font-weight: 500; }
+.sc-cell.sc-na { color: var(--color-fg-muted); background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--color-border) 60%, transparent) 6px 7px); cursor: default; }
+.sc-cell.sc-before { background: color-mix(in srgb, var(--color-border) 25%, transparent); }
+.kn-locked { display: flex; align-items: center; color: var(--color-fg-muted); background: color-mix(in srgb, var(--color-border) 30%, transparent); }
+.kn-links { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 0; }
+.trend-earlier .trend-bar { opacity: .45; }
+.key-dot.trend-earlier-dot { background: var(--color-fg-muted); opacity: .45; }
+.kn-asof { background: color-mix(in srgb, var(--brand-500, #3a9a3a) 10%, transparent); }
+.kn-asof input { width: auto; }
+@media print { .kn-asof { border: 1px solid #ccc; } }

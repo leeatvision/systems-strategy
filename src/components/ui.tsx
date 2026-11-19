@@ -105,7 +105,7 @@ export function DateInput({ value, onChange, label, small, id }: {
 }
 
 /** Menu choices that only look or export; the rest are hidden from read-only people. */
-const VIEW_ONLY = /^(Print|Export|Open all|Close all|Past Meetings)/;
+const VIEW_ONLY = /^(Print|Export|Open all|Close all|Past Meetings|Look back|Show retired|Hide retired)/;
 
 export interface MenuItem { label: string; icon?: ReactNode; onSelect: () => void; danger?: boolean; hidden?: boolean }
 

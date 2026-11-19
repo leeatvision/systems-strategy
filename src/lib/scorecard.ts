@@ -30,8 +30,13 @@ export interface Measurable {
   period_override: Period | null;
   is_additive: boolean;
   sort_order: number;
+  /** Retired on this day (stored at midday UTC); null while on the list. */
   archived_at: string | null;
   deleted_at: string | null;
+  /** First day on the list. Entering a number for an earlier period moves it back. */
+  active_from: string;
+  /** The number that took over when this one was replaced. */
+  replaced_by_id: string | null;
 }
 
 export interface MValue {
@@ -69,6 +74,32 @@ export function shiftPeriod(period: Period, start: string, by: number): string {
 export function recentPeriods(period: Period, n: number, ending = today()): string[] {
   const last = periodStart(period, ending);
   return Array.from({ length: n }, (_, i) => shiftPeriod(period, last, i - (n - 1)));
+}
+
+export function periodEnd(period: Period, start: string): string {
+  return addDays(shiftPeriod(period, start, 1), -1);
+}
+
+// ─── A number's time on the list ────────────────────────────────────────────
+
+/** The day a number was retired, or null. */
+export const retiredOn = (m: Pick<Measurable, "archived_at">): string | null => m.archived_at?.slice(0, 10) ?? null;
+/** How a retire day is stored. */
+export const retireStamp = (day: string) => `${day}T12:00:00Z`;
+/**
+ * A number in one period: "live"; "before" it was added (shown faded, still open for filling in history);
+ * or "retired" (a period starting on or after the day it was retired: locked).
+ */
+export function lifeIn(m: Pick<Measurable, "archived_at" | "active_from">, period: Period, start: string): "live" | "before" | "retired" {
+  const r = retiredOn(m);
+  if (r && r <= start) return "retired";
+  if (m.active_from > periodEnd(period, start)) return "before";
+  return "live";
+}
+/** On the list on a given day: started by then and not yet retired. */
+export function onListAt(m: Pick<Measurable, "archived_at" | "active_from">, day: string): boolean {
+  const r = retiredOn(m);
+  return m.active_from <= day && (!r || r > day);
 }
 
 export function periodLabel(period: Period, start: string): string {

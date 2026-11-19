@@ -7,7 +7,7 @@ import {
   GOAL_STATUS, addDays, currentQuarter, fmtDateTime, fmtDay, today, useMembers,
   type Headline, type Issue, type Goal, type Todo,
 } from "../lib/data";
-import { fmtValue, goalText, nearestMeeting, onTrack, parseNumber, recentPeriods, scheduleOf, timeline, type MValue, type Measurable, type Period } from "../lib/scorecard";
+import { onListAt, fmtValue, goalText, nearestMeeting, onTrack, parseNumber, recentPeriods, scheduleOf, timeline, type MValue, type Measurable, type Period } from "../lib/scorecard";
 import {
   mmss, type AgendaItem, type Attendee, type MeetingRow, type Recap, type Session, type SessionAgenda, type SessionEvent,
 } from "../lib/meetings";
@@ -280,12 +280,13 @@ function ScorecardReview({ p }: { p: SectionProps }) {
   const load = useCallback(async () => {
     const { data: card } = await supabase.from("ss_scorecards").select("id, period").eq("meeting_id", p.meeting.id).maybeSingle();
     if (!card) { setData({ list: [], values: [], period: "week" }); return; }
-    const { data: ms } = await supabase.from("ss_measurables").select("*").eq("scorecard_id", card.id).is("deleted_at", null).is("archived_at", null).order("sort_order");
-    const list = (ms ?? []) as Measurable[];
+    const { data: ms } = await supabase.from("ss_measurables").select("*").eq("scorecard_id", card.id).is("deleted_at", null).order("sort_order");
+    // The numbers on the list on this meeting's day.
+    const list = ((ms ?? []) as Measurable[]).filter((m) => onListAt(m, t.day));
     const from = [weeks[0], months[0], years[0]].sort()[0];
     const { data: vs } = list.length ? await supabase.from("ss_measurable_values").select("*").in("measurable_id", list.map((m) => m.id)).gte("period_start", from) : { data: [] };
     setData({ list, values: (vs ?? []) as MValue[], period: card.period as Period });
-  }, [p.meeting.id, weeks.join(), months.join(), years.join()]); // the dates, not the arrays
+  }, [p.meeting.id, t.day, weeks.join(), months.join(), years.join()]); // the dates, not the arrays
   useEffect(() => { load(); }, [load, p.tick]);
 
   if (!data) return <p className="muted">Loading…</p>;
