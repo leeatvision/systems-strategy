@@ -175,7 +175,7 @@ export function MeetingLive() {
         <section className="live-main">
           {current && (
             <div className="row live-title">
-              <h1>{current.title}</h1>
+              <h1>{w(current.title)}</h1>
               <span className="spacer" />
               <span className={`live-timer${left < 0 ? " over" : left < 60 ? " soon" : ""}`}>{mmss(left)}</span>
             </div>
@@ -185,7 +185,7 @@ export function MeetingLive() {
           <div className="row live-nav">
             <button className="btn" disabled={idx === 0} onClick={() => goTo(idx - 1)}><ChevronLeft size={18} />Back</button>
             <span className="spacer" />
-            {idx < agenda.length - 1 && <button className="btn btn-primary" onClick={() => goTo(idx + 1)} title={`Next: ${agenda[idx + 1].title}`}><span className="next-label">Next: {agenda[idx + 1].title}</span><ChevronRight size={18} style={{ flex: "none" }} /></button>}
+            {idx < agenda.length - 1 && <button className="btn btn-primary" onClick={() => goTo(idx + 1)} title={`Next: ${w(agenda[idx + 1].title)}`}><span className="next-label">Next: {w(agenda[idx + 1].title)}</span><ChevronRight size={18} style={{ flex: "none" }} /></button>}
           </div>
         </section>
       </div>
@@ -360,6 +360,8 @@ function ScorecardReview({ p }: { p: SectionProps }) {
 function GoalReview({ p }: { p: SectionProps }) {
   const [goals, setGoals] = useState<Goal[] | null>(null);
   const [dropped, setDropped] = useState<Set<string>>(new Set());
+  // Done Goals aren't shown, except ones marked Done during this meeting (so a mis-tap can be undone).
+  const [doneNow, setDoneNow] = useState<Set<string>>(new Set());
   const [opened, setOpened] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const q = currentQuarter();
@@ -370,16 +372,19 @@ function GoalReview({ p }: { p: SectionProps }) {
   }, [p.meeting.id, p.tick, q.quarter, q.year, reload]);
   const set = async (r: Goal, status: Goal["status"]) => {
     setGoals((l) => l?.map((x) => (x.id === r.id ? { ...x, status } : x)) ?? null);
+    if (status === "done") setDoneNow((d) => new Set(d).add(r.id));
     await supabase.from("ss_goals").update({ status }).eq("id", r.id);
     p.logEvent("goal", r.id, "reviewed");
   };
   if (!goals) return <p className="muted">Loading…</p>;
-  if (!goals.length) return <Empty>No live {w("Goals")} on this meeting this quarter.</Empty>;
+  const shown = goals.filter((r) => r.status !== "done" || doneNow.has(r.id));
+  const hiddenDone = goals.length - shown.length;
+  if (!shown.length) return <Empty>No open {w("Goals")} on this meeting this quarter{hiddenDone ? ` (${hiddenDone} done)` : ""}.</Empty>;
   return (
     <div className="stack">
       <p className="muted">Each owner says on track or off track. Off-track {w("Goals")} go to Issues.</p>
       <ul className="card list">
-        {goals.map((r) => (
+        {shown.map((r) => (
           <li key={r.id} style={{ flexWrap: "wrap" }}>
             <Avatar m={p.byId(r.owner_member_id)} />
             <button type="button" className="item-title live-open" style={{ flex: "1 1 200px" }} onClick={() => setOpened(r.id)}>{r.title}</button>
@@ -394,6 +399,7 @@ function GoalReview({ p }: { p: SectionProps }) {
           </li>
         ))}
       </ul>
+      {hiddenDone > 0 && <p className="small muted">{hiddenDone} done {hiddenDone === 1 ? w("Goal") : w("Goals")} not shown.</p>}
       {opened && (
         <Sheet title={w("Goal")} onClose={() => { setOpened(null); setReload((n) => n + 1); }}>
           <GoalDetail goalId={opened} onClose={() => setOpened(null)} onChanged={() => setReload((n) => n + 1)} />

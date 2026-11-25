@@ -75,8 +75,8 @@ export interface Recap {
 }
 
 export const AGENDA_LABEL: Record<AgendaType, string> = {
-  good_news: "Good News", check_in: "Check-In", scorecard: w("Key Numbers"), goal_review: w("Goal Review"), headlines: "Headlines",
-  todo_list: "To-Do List", discuss_solve: "Discuss and Solve", conclude: "Conclude", custom: "Custom Section",
+  good_news: w("Good News"), check_in: "Check-In", scorecard: w("Key Numbers"), goal_review: w("Goal Review"), headlines: "Headlines",
+  todo_list: "To-Do List", discuss_solve: w("Discuss and Solve"), conclude: "Conclude", custom: "Custom Section",
 };
 
 export const MEETING_TYPE: Record<MeetingRow["meeting_type"], string> = {

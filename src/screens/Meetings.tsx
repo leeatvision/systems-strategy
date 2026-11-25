@@ -208,7 +208,7 @@ export function MeetingDetail() {
             ) : (
               <li key={a.id}>
                 <span className="step-num">{i + 1}</span>
-                <button type="button" className="step-view agenda-view" onClick={() => setEditItem(a.id)} aria-label={`Edit section: ${a.title}`}>
+                <button type="button" className="step-view agenda-view" onClick={() => setEditItem(a.id)} aria-label={`Edit section: ${w(a.title)}`}>
                   <span className="step-text">{w(a.title)}</span>
                   <span className="small muted nowrap">{a.minutes} min{a.fill_time ? " · uses spare time" : ""}</span>
                 </button>
