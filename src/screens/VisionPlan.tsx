@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import { Archive, ArrowDown, ArrowUp, BadgeCheck, ChevronsUpDown, Copy, Link2, Pencil, Plus, Printer, Trash2 } from "lucide-react";
@@ -30,16 +30,54 @@ const COPY_FIELDS: VersionField[] = ["title", "purpose", "niche", "long_term_tar
   "how_we_work", "guarantee", "three_year_date", "three_year_revenue", "three_year_profit", "one_year_date", "one_year_revenue",
   "one_year_profit", "quarter_date", "quarter_revenue", "quarter_profit"];
 
+/** Most lines a text box grows to before it scrolls. */
+const MAX_LINES = 15;
+
+/** A text box that is as tall as its text (wrapped lines included), up to MAX_LINES, then scrolls. */
+function AutoText({ value, onChange, onBlur, placeholder, multiline }: {
+  value: string; onChange: (v: string) => void; onBlur: () => void; placeholder?: string; multiline?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const fit = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const line = parseFloat(cs.lineHeight) || 22;
+    const extra = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    const max = line * MAX_LINES + extra;
+    el.style.height = "auto";
+    const want = el.scrollHeight + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    el.style.height = `${Math.min(want, max)}px`;
+    el.style.overflowY = want > max ? "auto" : "hidden";
+    el.classList.toggle("plan-scroll", want > max);
+  }, []);
+  useLayoutEffect(fit, [value, fit]);
+  // Refit when the box changes width (a section opening, the window resizing).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let w = el.clientWidth;
+    const ro = new ResizeObserver(() => { if (el.clientWidth !== w) { w = el.clientWidth; fit(); } });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
+  return (
+    <textarea ref={ref} className="plan-input plan-auto" rows={1} value={value} placeholder={placeholder}
+      onChange={(e) => onChange(multiline ? e.target.value : e.target.value.replace(/\n/g, " "))} onBlur={onBlur}
+      onKeyDown={(e) => { if (!multiline && e.key === "Enter") { e.preventDefault(); (e.target as HTMLTextAreaElement).blur(); } }} />
+  );
+}
+
 /** A text that saves itself when you leave it. */
 function Editable({ value, onSave, placeholder, multiline, type, ro }: { value: string | null; onSave: (v: string | null) => void; placeholder?: string; multiline?: boolean; type?: string; ro?: boolean }) {
   const [v, setV] = useState(value ?? "");
   useEffect(() => setV(value ?? ""), [value]);
   const done = () => { const next = v.trim() || null; if (next !== (value ?? null)) onSave(next); };
   if (ro) return value ? <span className="plan-text">{type === "date" ? fmtDay(value, true) : value}</span> : <span className="plan-text muted">Not filled in</span>;
-  return multiline
-    ? <textarea className="plan-input" rows={Math.max(2, v.split("\n").length)} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={done} />
-    : <input className="plan-input" type={type ?? "text"} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={done}
-        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />;
+  // Dates stay a date picker; every text grows with what's typed (single-line ones wrap, Enter saves).
+  return type === "date"
+    ? <input className="plan-input" type="date" value={v} onChange={(e) => setV(e.target.value)} onBlur={done} />
+    : <AutoText value={v} onChange={setV} onBlur={done} placeholder={placeholder} multiline={multiline} />;
 }
 
 /** One section of the plan: read as text, the pencil turns on editing for just that section. */

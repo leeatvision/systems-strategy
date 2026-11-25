@@ -1051,3 +1051,6 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
 .kn-asof { background: color-mix(in srgb, var(--brand-500, #3a9a3a) 10%, transparent); }
 .kn-asof input { width: auto; }
 @media print { .kn-asof { border: 1px solid #ccc; } }
+/* V/TO text boxes size to their text (set from script), up to 15 lines, then scroll. */
+.plan-input.plan-auto { resize: none; overflow-y: hidden; display: block; min-height: calc(1.45em + 14px); }
+.plan-input.plan-auto.plan-scroll { border-color: var(--color-border); }
