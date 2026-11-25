@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ArrowDown, ArrowUp, CalendarClock, ChevronLeft, CircleAlert, Download, Eye, EyeOff, Grid3x3, List, Pencil, Plus, Printer, Replace, Settings, SquarePen, Trash2 } from "lucide-react";
@@ -17,6 +17,7 @@ import { Sheet } from "../components/Sheet";
 import { History } from "../components/History";
 import { MineToggle, useFilters } from "../components/Filters";
 import { w } from "../lib/terms";
+import { DragHandle, moved, saveSortOrder, useDragSort } from "../components/DragSort";
 
 const SECTION_ORDER: Period[] = ["week", "month", "quarter", "year"];
 const COUNT: Record<Period, number> = { week: 13, month: 6, quarter: 4, year: 3 };
@@ -107,7 +108,14 @@ function useKeyNumbers(asOf: string | null = null) {
     }
     load();
   };
-  return { card, measurables, values, valueFor, save, load, error, setError, t };
+  /** Put the numbers in a new order (all of them), show it at once, then save it. */
+  const reorder = async (ordered: Measurable[]) => {
+    setMeasurables(ordered);
+    const error = await saveSortOrder("ss_measurables", ordered);
+    if (error) setError(friendlyError(error));
+    load();
+  };
+  return { card, measurables, values, valueFor, save, load, error, setError, t, reorder };
 }
 
 export function Scorecard() {
@@ -119,7 +127,14 @@ export function Scorecard() {
   const [asOf, setAsOf] = useState<string | null>(null);
   const [showRetired, setShowRetired] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const { card, measurables, values, valueFor, save, load, error, t } = useKeyNumbers(asOf);
+  const { card, measurables, values, valueFor, save, load, error, t, reorder } = useKeyNumbers(asOf);
+  // Dragging within one group (Weekly, Monthly…) slots that group's new order back into the whole list.
+  const reorderIn = (group: Measurable[], from: number, to: number) => {
+    const next = moved(group, from, to);
+    const ids = new Set(group.map((m) => m.id));
+    let k = 0;
+    reorder(measurables.map((m) => (ids.has(m.id) ? next[k++] : m)));
+  };
   const filters = useFilters("keynumbers", { owner: "all" });
   const [editing, setEditing] = useState<"new" | null>(null);
   const [settings, setSettings] = useState(false);
@@ -164,14 +179,15 @@ export function Scorecard() {
   const missingText = missing.every((m) => periodOf(m, card) === "week") && t.sched ? `for the ${t.label("week", nextWeek.cur)} meeting`
     : missing.every((m) => periodOf(m, card) === "week") ? "for last week" : "";
 
-  const row = (m: Measurable) => {
+  const row = (m: Measurable, drag?: ReturnType<typeof useDragSort>, i = 0) => {
     const last = latest(m, card, t, valueFor);
     const ok = statusOf(last?.v);
     const per = periodOf(m, card);
     const spark = t.periods(per, 8).map((p) => valueFor(m, p));
     const max = Math.max(...spark.map((v) => Math.abs(v?.value ?? 0)), Math.abs(m.goal_value ?? 0), 1);
     return (
-      <li key={m.id} className="clickable" onClick={() => navigate(`/key-numbers/${m.id}`)}>
+      <li key={m.id} {...drag?.itemProps(i)} className={`clickable ${drag?.itemProps(i).className ?? ""}`} onClick={() => navigate(`/key-numbers/${m.id}`)}>
+        {drag && <DragHandle {...drag.handleProps(i, m.title)} className="edit-only" />}
         <Avatar m={byId(m.owner_member_id)} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="item-title">{m.title}{retiredOn(m) && <span className="badge kn-retired">Retired {fmtDay(retiredOn(m)!, true)}</span>}</div>
@@ -244,8 +260,9 @@ export function Scorecard() {
       {sections.map((s) => (
         <Section key={s.period} title={PERIOD_LABEL[s.period]} count={s.list.length}>
           {view === "grid"
-            ? <Grid card={card} t={t} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onOpen={(m) => navigate(`/key-numbers/${m.id}`)} />
-            : <ul className="card list">{s.list.map(row)}</ul>}
+            ? <Grid card={card} t={t} period={s.period} periods={s.periods} list={s.list} loaded={values.length} valueFor={valueFor} byId={byId} onSave={save} onOpen={(m) => navigate(`/key-numbers/${m.id}`)}
+                onReorder={asOf ? undefined : (from, to) => reorderIn(s.list, from, to)} />
+            : <RowList list={s.list} row={row} onReorder={asOf ? undefined : (from, to) => reorderIn(s.list, from, to)} />}
         </Section>
       ))}
       </div>
@@ -660,11 +677,12 @@ function Cell({ m, period, v, life, onSave }: { m: Measurable; period: string; v
   );
 }
 
-function Grid({ card, t, period, periods, list, loaded, valueFor, byId, onSave, onOpen }: {
+function Grid({ card, t, period, periods, list, loaded, valueFor, byId, onSave, onOpen, onReorder }: {
   card: Card; t: Timeline; period: Period; periods: string[]; list: Measurable[]; loaded: number;
   valueFor: (m: Measurable, p: string) => MValue | undefined; byId: ReturnType<typeof useMembers>["byId"];
-  onSave: (m: Measurable, p: string, t: string) => void; onOpen: (m: Measurable) => void;
+  onSave: (m: Measurable, p: string, t: string) => void; onOpen: (m: Measurable) => void; onReorder?: (from: number, to: number) => void;
 }) {
+  const drag = useDragSort(list.length, (from, to) => onReorder?.(from, to));
   // Open scrolled to the newest periods.
   const wrap = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -682,13 +700,14 @@ function Grid({ card, t, period, periods, list, loaded, valueFor, byId, onSave, 
           </tr>
         </thead>
         <tbody>
-          {list.map((m) => {
+          {list.map((m, i) => {
             const nums = periods.filter((p) => lifeIn(m, period, p) !== "retired").map((p) => valueFor(m, p)?.value).filter((x): x is number => x !== null && x !== undefined);
             const total = nums.reduce((a, b) => a + b, 0);
             return (
-              <tr key={m.id}>
+              <tr key={m.id} {...drag.itemProps(i)}>
                 <td className="sc-title">
                   <div className="row" style={{ gap: 8 }}>
+                    {onReorder && list.length > 1 && <DragHandle {...drag.handleProps(i, m.title)} className="edit-only" />}
                     <Avatar m={byId(m.owner_member_id)} size={26} />
                     <div style={{ minWidth: 0 }}>
                       <button className="link-btn sc-name" onClick={() => onOpen(m)}>{m.title}</button>
@@ -839,4 +858,12 @@ function SettingsSheet({ card, onClose, onSaved }: { card: Card; onClose: () => 
       </form>
     </Sheet>
   );
+}
+
+/** One group of numbers as a list, draggable into a new order. */
+function RowList({ list, row, onReorder }: {
+  list: Measurable[]; row: (m: Measurable, drag?: ReturnType<typeof useDragSort>, i?: number) => ReactElement; onReorder?: (from: number, to: number) => void;
+}) {
+  const drag = useDragSort(list.length, (from, to) => onReorder?.(from, to));
+  return <ul className="card list">{list.map((m, i) => row(m, onReorder && list.length > 1 ? drag : undefined, i))}</ul>;
 }

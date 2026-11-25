@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
-import { Archive, ArrowDown, ArrowUp, BadgeCheck, ChevronsUpDown, Copy, Link2, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Archive, BadgeCheck, ChevronsUpDown, Copy, Link2, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { printPage } from "../lib/print";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -9,6 +9,7 @@ import { GOAL_STATUS, currentQuarter, fmtDay, useMembers, type Issue, type Goal 
 import { Empty, Fold, Menu } from "../components/ui";
 import { Attachments } from "../components/Attachments";
 import { w, wLong } from "../lib/terms";
+import { DragHandle, saveSortOrder, useDragSort, useOrderedRows } from "../components/DragSort";
 
 interface Version {
   id: string; company_id: string; title: string; status: "draft" | "official" | "archived";
@@ -319,17 +320,18 @@ function useItemOps({ section, list, versionId, companyId, reload, onError }: Li
       sort_order: (rows.at(-1)?.sort_order ?? 0) + 1, ...fields })),
     patch: (it: Item, fields: Partial<Item>) => run(supabase.from("ss_plan_items").update(fields).eq("id", it.id)),
     remove: (it: Item) => run(supabase.from("ss_plan_items").delete().eq("id", it.id)),
-    move: async (i: number, by: number) => {
-      const a = rows[i], b = rows[i + by];
-      if (!a || !b) return;
-      await supabase.from("ss_plan_items").update({ sort_order: b.sort_order }).eq("id", a.id);
-      run(supabase.from("ss_plan_items").update({ sort_order: a.sort_order === b.sort_order ? b.sort_order + 1 : a.sort_order }).eq("id", b.id));
+    saveOrder: async (ordered: Item[]) => {
+      const error = await saveSortOrder("ss_plan_items", ordered);
+      if (error) onError(friendlyError(error));
+      reload();
     },
   };
 }
 
 function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean; withValue?: boolean; withOwner?: boolean; ro?: boolean }) {
-  const { rows, add, patch, remove, move } = useItemOps(props);
+  const { rows: saved, add, patch, remove, saveOrder } = useItemOps(props);
+  const { shown: rows, reorder } = useOrderedRows(saved, saveOrder);
+  const drag = useDragSort(rows.length, reorder);
   const { active, byId } = useMembers();
   if (props.ro) {
     if (!rows.length) return <span className="plan-text muted">Not filled in</span>;
@@ -349,7 +351,8 @@ function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean;
   return (
     <div className="plan-list">
       {rows.map((it, i) => (
-        <div key={it.id} className="plan-item">
+        <div key={it.id} {...drag.itemProps(i)} className={`plan-item ${drag.itemProps(i).className}`}>
+          <DragHandle {...drag.handleProps(i, it.title || props.placeholder)} className="no-print" />
           <span className="plan-num">{i + 1}.</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Editable value={it.title} onSave={(t) => patch(it, { title: t ?? "" })} placeholder={props.placeholder} />
@@ -362,8 +365,6 @@ function ItemList(props: ListProps & { placeholder: string; withNotes?: boolean;
             </select>
           )}
           <span className="plan-tools no-print">
-            <button className="link-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={14} /></button>
-            <button className="link-btn" aria-label="Move down" disabled={i === rows.length - 1} onClick={() => move(i, 1)}><ArrowDown size={14} /></button>
             <button className="link-btn" aria-label="Remove" onClick={() => remove(it)}><Trash2 size={14} /></button>
           </span>
         </div>

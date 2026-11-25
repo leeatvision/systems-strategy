@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, CircleAlert, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, CircleAlert, Pencil, Plus, Trash2 } from "lucide-react";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import {
@@ -14,6 +14,7 @@ import { History } from "../components/History";
 import { Comments } from "../components/Comments";
 import { Attachments } from "../components/Attachments";
 import { w } from "../lib/terms";
+import { DragHandle, moved, saveSortOrder, useDragSort } from "../components/DragSort";
 
 type Form = Omit<Goal, "id" | "company_id" | "completed_at" | "deleted_at" | "archived_at" | "created_at" | "updated_at">;
 
@@ -413,12 +414,12 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
     }));
     setNewText(""); setNewDue(null);
   };
-  const move = async (i: number, by: number) => {
-    const a = steps[i], b = steps[i + by];
-    if (!a || !b) return;
-    await supabase.from("ss_goal_steps").update({ sort_order: b.sort_order }).eq("id", a.id);
-    await run(supabase.from("ss_goal_steps").update({ sort_order: a.sort_order }).eq("id", b.id));
+  const reorder = (from: number, to: number) => {
+    const next = moved(steps, from, to);
+    setSteps(next);
+    run(saveSortOrder("ss_goal_steps", next).then((error) => ({ error })));
   };
+  const drag = useDragSort(steps.length, reorder);
   const remove = async (s: GoalStep) => { setEditing(null); await run(supabase.from("ss_goal_steps").delete().eq("id", s.id)); };
 
   const done = steps.filter((s) => s.completed_on).length;
@@ -431,7 +432,8 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
         {steps.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>No steps yet. Break the {w("Goal")} into dated steps; the progress bar fills as they're ticked off.</p>}
         <ul className="list steps">
           {steps.map((s, i) => editing === s.id ? (
-            <li key={s.id} className="step-editing">
+            <li key={s.id} {...drag.itemProps(i)} className={`step-editing ${drag.itemProps(i).className}`}>
+              <DragHandle {...drag.handleProps(i, s.activity || "step")} />
               <div className="step-fields">
                 <textarea className="input textarea" rows={2} placeholder="What needs to happen" defaultValue={s.activity} autoFocus
                   onBlur={(e) => e.target.value !== s.activity && patch(s, { activity: e.target.value })} />
@@ -440,8 +442,6 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
                   <div className="field"><span>Done</span><DateInput small label="Step done date" value={s.completed_on} onChange={(v) => patch(s, { completed_on: v })} /></div>
                 </div>
                 <div className="row" style={{ gap: 4 }}>
-                  <button className="btn btn-ghost btn-sm" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-                  <button className="btn btn-ghost btn-sm" aria-label="Move down" disabled={i === steps.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
                   <button className="btn btn-ghost btn-sm btn-danger" aria-label="Remove step" onClick={() => confirm("Remove this step?") && remove(s)}><Trash2 size={16} /></button>
                   <span className="spacer" />
                   <button className="btn btn-sm" onClick={() => setEditing(null)}>Done</button>
@@ -449,7 +449,8 @@ function Steps({ goal, companyId, onChange, onSteps }: { goal: Goal; companyId: 
               </div>
             </li>
           ) : (
-            <li key={s.id}>
+            <li key={s.id} {...drag.itemProps(i)}>
+              <DragHandle {...drag.handleProps(i, s.activity || "step")} className="edit-only" />
               <Tick done={!!s.completed_on} label={s.completed_on ? "Mark not done" : "Mark done"}
                 onToggle={() => patch(s, { completed_on: s.completed_on ? null : today() })} />
               <button type="button" className="step-view" onClick={() => setEditing(s.id)} aria-label={`Edit step: ${s.activity || "untitled"}`}>

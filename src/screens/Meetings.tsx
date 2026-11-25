@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, History as HistoryIcon, Pencil, Play, Plus, Radio, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, History as HistoryIcon, Pencil, Play, Plus, Radio, Trash2 } from "lucide-react";
 import { friendlyError, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDateTime, isoDay, nextMeeting, useMembers } from "../lib/data";
@@ -11,6 +11,7 @@ import { Avatar, DateInput, Empty, Fold, Menu, OwnerChips } from "../components/
 import { Sheet } from "../components/Sheet";
 import { History } from "../components/History";
 import { w } from "../lib/terms";
+import { DragHandle, moved, saveSortOrder, useDragSort } from "../components/DragSort";
 
 export function Meetings() {
   const navigate = useNavigate();
@@ -104,17 +105,18 @@ export function MeetingDetail() {
     return error ? friendlyError(error) : "";
   };
 
+  // Drag to reorder sections (above the early return: hooks run every time).
+  const reorder = (from: number, to: number) => {
+    const next = moved(agenda, from, to);
+    setAgenda(next);
+    run(saveSortOrder("ss_agenda_items", next).then((error) => ({ error })));
+  };
+  const drag = useDragSort(agenda.length, reorder);
   if (!m) return error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>;
 
   const patchItem = (a: AgendaItem, change: Partial<AgendaItem>) => {
     setAgenda((list) => list.map((x) => (x.id === a.id ? { ...x, ...change } : x)));
     return run(supabase.from("ss_agenda_items").update(change).eq("id", a.id));
-  };
-  const move = async (i: number, by: number) => {
-    const a = agenda[i], b = agenda[i + by];
-    if (!a || !b) return;
-    await supabase.from("ss_agenda_items").update({ sort_order: b.sort_order }).eq("id", a.id);
-    await run(supabase.from("ss_agenda_items").update({ sort_order: a.sort_order === b.sort_order ? b.sort_order + 1 : a.sort_order }).eq("id", b.id));
   };
   const addItem = async (e: FormEvent) => {
     e.preventDefault();
@@ -179,7 +181,8 @@ export function MeetingDetail() {
           {agenda.length === 0 && <p className="small muted card-pad" style={{ margin: 0 }}>No sections yet.</p>}
           <ol className="list steps process-list">
             {agenda.map((a, i) => editItem === a.id ? (
-              <li key={a.id} className="step-editing">
+              <li key={a.id} {...drag.itemProps(i)} className={`step-editing ${drag.itemProps(i).className}`}>
+                <DragHandle {...drag.handleProps(i, w(a.title))} />
                 <span className="step-num">{i + 1}</span>
                 <div className="step-fields">
                   <input className="input" defaultValue={w(a.title)} aria-label="Section title" autoFocus
@@ -196,8 +199,6 @@ export function MeetingDetail() {
                     </label>
                   </div>
                   <div className="row" style={{ gap: 4 }}>
-                    <button className="btn btn-ghost btn-sm" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-                    <button className="btn btn-ghost btn-sm" aria-label="Move down" disabled={i === agenda.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
                     <button className="btn btn-ghost btn-sm btn-danger" aria-label="Remove section"
                       onClick={() => { if (confirm("Remove this section?")) { setEditItem(null); run(supabase.from("ss_agenda_items").delete().eq("id", a.id)); } }}><Trash2 size={16} /></button>
                     <span className="spacer" />
@@ -206,7 +207,8 @@ export function MeetingDetail() {
                 </div>
               </li>
             ) : (
-              <li key={a.id}>
+              <li key={a.id} {...drag.itemProps(i)}>
+                <DragHandle {...drag.handleProps(i, w(a.title))} className="edit-only" />
                 <span className="step-num">{i + 1}</span>
                 <button type="button" className="step-view agenda-view" onClick={() => setEditItem(a.id)} aria-label={`Edit section: ${w(a.title)}`}>
                   <span className="step-text">{w(a.title)}</span>

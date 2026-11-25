@@ -999,7 +999,7 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
 /* People Review grid */
 .pr-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .pr-table { border-collapse: collapse; width: auto; min-width: 100%; font-size: 14px; }
-.pr-table .pr-name .link-btn:first-child { color: var(--color-fg); font-weight: 500; text-align: left; }
+.pr-table .pr-name .link-btn:not(.pr-remove) { color: var(--color-fg); font-weight: 500; text-align: left; }
 .pr-table thead .pr-name, .pr-table tfoot .pr-name { width: 1%; }
 .pr-table th, .pr-table td { border-bottom: 1px solid var(--color-border); padding: 0; text-align: center; }
 .pr-table .pr-name { text-align: left; padding: 8px 10px; white-space: nowrap; position: sticky; left: 0; background: var(--color-surface, var(--color-bg)); z-index: 1; min-width: 140px; }
@@ -1054,3 +1054,11 @@ html[data-readonly] .menu-trigger, html[data-readonly] .rate-btn, html[data-read
 /* V/TO text boxes size to their text (set from script), up to 15 lines, then scroll. */
 .plan-input.plan-auto { resize: none; overflow-y: hidden; display: block; min-height: calc(1.45em + 14px); }
 .plan-input.plan-auto.plan-scroll { border-color: var(--color-border); }
+
+/* Drag to reorder */
+.drag-handle-btn { touch-action: none; cursor: grab; background: none; border: 0; color: var(--color-fg-muted); padding: 4px 2px; display: inline-flex; align-items: center; border-radius: var(--radius-sm); flex: none; }
+.drag-handle-btn:hover, .drag-handle-btn:focus-visible { color: var(--color-fg); background: var(--color-bg-subtle); }
+.drag-handle-btn:active { cursor: grabbing; }
+.drag-lifted { position: relative; z-index: 5; background: var(--color-bg); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); border-radius: var(--radius-sm); }
+.drag-sibling { position: relative; }
+@media print { .drag-handle-btn { display: none !important; } }

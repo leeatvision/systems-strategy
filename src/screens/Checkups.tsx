@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, ListChecks, Lock, LockOpen, Plus, Trash2, X } from "lucide-react";
+import { ChevronLeft, CircleAlert, ListChecks, Lock, LockOpen, Plus, Trash2, X } from "lucide-react";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
 import { fmtDay, useMeetings, useMembers } from "../lib/data";
 import { Chips, Empty, Menu, Section } from "../components/ui";
 import { Sheet } from "../components/Sheet";
+import { DragHandle, moved, useDragSort } from "../components/DragSort";
 
 type Kind = string;
 interface CheckupType { id: string; key: string; name: string; built_in: boolean; is_one_off: boolean; sort_order: number; deleted_at: string | null }
@@ -409,7 +410,6 @@ function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<type
   }, [type?.key, type?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const edit = (fn: (g: Group[]) => Group[]) => setGroups((g) => (g ? fn(g.map((x) => ({ ...x, items: [...x.items] }))) : g));
-  const move = (gi: number, i: number, by: -1 | 1) => edit((g) => { const it = g[gi].items; [it[i], it[i + by]] = [it[i + by], it[i]]; return g; });
   const dirty = groups !== null && JSON.stringify(fromGroups(groups)) !== saved;
 
   const save = async () => {
@@ -493,23 +493,7 @@ function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<type
                           onClick={() => confirm(`Remove ${g.title || "this group"} and its ${g.items.length} statement${g.items.length === 1 ? "" : "s"}?`) && edit((x) => x.filter((_, j) => j !== gi))}><X size={16} /></button>
                       </div>
                     ) : g.title && <strong className="checkup-group">{g.title}</strong>}
-                    <ol className="std-items">
-                      {g.items.map((t, i) => (
-                        <li key={i} className="row" style={{ gap: 6, alignItems: "flex-start" }}>
-                          {isOwner ? (
-                            <>
-                              <textarea className="input textarea std-item" rows={2} value={t} aria-label={`Statement ${i + 1}`}
-                                onChange={(e) => edit((x) => { x[gi].items[i] = e.target.value; return x; })} />
-                              <div className="std-tools">
-                                <button className="link-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(gi, i, -1)}><ArrowUp size={14} /></button>
-                                <button className="link-btn" aria-label="Move down" disabled={i === g.items.length - 1} onClick={() => move(gi, i, 1)}><ArrowDown size={14} /></button>
-                                <button className="link-btn" aria-label="Remove statement" onClick={() => edit((x) => { x[gi].items.splice(i, 1); return x; })}><Trash2 size={14} /></button>
-                              </div>
-                            </>
-                          ) : <span>{t}</span>}
-                        </li>
-                      ))}
-                    </ol>
+                    <StdItems items={g.items} isOwner={isOwner} onChange={(items) => edit((x) => { x[gi].items = items; return x; })} />
                     {isOwner && <button className="btn btn-sm btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => edit((x) => { x[gi].items.push(""); return x; })}><Plus size={14} />Add Statement</button>}
                   </div>
                 ))}
@@ -524,5 +508,28 @@ function CheckupTypes({ checkupTypes, onClose }: { checkupTypes: ReturnType<type
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** One group's statements: edit, remove, and drag to reorder (owners). */
+function StdItems({ items, isOwner, onChange }: { items: string[]; isOwner: boolean; onChange: (items: string[]) => void }) {
+  const drag = useDragSort(items.length, (from, to) => onChange(moved(items, from, to)));
+  return (
+    <ol className="std-items">
+      {items.map((t, i) => (
+        <li key={i} {...drag.itemProps(i)} className={`row ${drag.itemProps(i).className}`} style={{ gap: 6, alignItems: "flex-start", ...drag.itemProps(i).style }}>
+          {isOwner ? (
+            <>
+              <DragHandle {...drag.handleProps(i, t || `statement ${i + 1}`)} />
+              <textarea className="input textarea std-item" rows={2} value={t} aria-label={`Statement ${i + 1}`}
+                onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))} />
+              <div className="std-tools">
+                <button className="link-btn" aria-label="Remove statement" onClick={() => onChange(items.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
+              </div>
+            </>
+          ) : <span>{t}</span>}
+        </li>
+      ))}
+    </ol>
   );
 }

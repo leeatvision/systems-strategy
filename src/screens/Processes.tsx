@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { printPage } from "../lib/print";
 import { friendlyError, fullName, supabase } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -12,6 +12,7 @@ import { Attachments } from "../components/Attachments";
 import { History } from "../components/History";
 import { FilterButton, FilterPanel, FilterSummary, MineToggle, ownerMatches, ownerOptions, useFilters } from "../components/Filters";
 import { addDays } from "../lib/data";
+import { DragHandle, saveSortOrder, useDragSort, useOrderedRows } from "../components/DragSort";
 
 export interface Process {
   id: string; company_id: string; owner_member_id: string | null; title: string; description: string | null;
@@ -284,7 +285,9 @@ function StepList({ ctx, answerId, prefix, ends }: { ctx: StepCtx; answerId: str
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(!answerId);
-  const list = ctx.steps.filter((x) => (x.answer_id ?? null) === answerId).sort((a, b) => a.sort_order - b.sort_order);
+  const saved = ctx.steps.filter((x) => (x.answer_id ?? null) === answerId).sort((a, b) => a.sort_order - b.sort_order);
+  const { shown: list, reorder } = useOrderedRows(saved, (next) => ctx.run(saveSortOrder("ss_process_steps", next).then((error) => ({ error }))));
+  const drag = useDragSort(list.length, reorder);
   const num = (i: number) => (prefix ? `${prefix}${prefix.match(/\d$/) ? LETTERS[i] ?? i + 1 : `.${i + 1}`}` : String(i + 1));
   const nextOrder = (list.at(-1)?.sort_order ?? 0) + 1;
 
@@ -304,12 +307,6 @@ function StepList({ ctx, answerId, prefix, ends }: { ctx: StepCtx; answerId: str
     setDraft("");
     ctx.reload();
   };
-  const move = async (i: number, by: number) => {
-    const a = list[i], b = list[i + by];
-    if (!a || !b) return;
-    await supabase.from("ss_process_steps").update({ sort_order: b.sort_order }).eq("id", a.id);
-    ctx.run(supabase.from("ss_process_steps").update({ sort_order: a.sort_order === b.sort_order ? b.sort_order + 1 : a.sort_order }).eq("id", b.id));
-  };
   const patch = (st: Step, change: Partial<Step>) => ctx.run(supabase.from("ss_process_steps").update(change).eq("id", st.id));
   const remove = (st: Step) => {
     const msg = st.kind === "if" ? "Remove this If/Then Step and the steps under its answers?" : "Remove this step?";
@@ -324,7 +321,8 @@ function StepList({ ctx, answerId, prefix, ends }: { ctx: StepCtx; answerId: str
           const isIf = st.kind === "if";
           const stepAnswers = ctx.answers.filter((a) => a.step_id === st.id).sort((a, b) => a.sort_order - b.sort_order);
           return (
-            <li key={st.id} className={`${editing === st.id ? "step-editing " : ""}${isIf ? "if-step" : ""}`}>
+            <li key={st.id} {...drag.itemProps(i)} className={`${editing === st.id ? "step-editing " : ""}${isIf ? "if-step" : ""} ${drag.itemProps(i).className}`}>
+              <DragHandle {...drag.handleProps(i, st.title || "step")} className="edit-only" />
               <span className={`step-num${isIf ? " if-num" : ""}`} title={isIf ? "If/Then Step" : undefined}>{isIf ? `◆ ${n}` : n}</span>
               <div className="step-body">
                 {editing === st.id ? (
@@ -354,8 +352,6 @@ function StepList({ ctx, answerId, prefix, ends }: { ctx: StepCtx; answerId: str
                       </div>
                     )}
                     <div className="row" style={{ gap: 4 }}>
-                      <button className="btn btn-ghost btn-sm" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-                      <button className="btn btn-ghost btn-sm" aria-label="Move down" disabled={i === list.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
                       <button className="btn btn-ghost btn-sm btn-danger" aria-label="Remove step" onClick={() => remove(st)}><Trash2 size={16} /></button>
                       <span className="spacer" />
                       <button className="btn btn-sm" onClick={() => setEditing(null)}>Done</button>

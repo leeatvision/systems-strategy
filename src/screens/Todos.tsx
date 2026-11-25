@@ -14,6 +14,7 @@ import { Empty, Menu, OwnerChips, OwnerSelect, PersonalBadge, Section, Tick } fr
 import { ItemPanel } from "../components/ItemPanel";
 import { RepeatPicker } from "../components/RepeatPicker";
 import { repeatOf, repeatText, sameRule } from "../lib/repeat";
+import { DragHandle, moved, saveSortOrder, useDragSort } from "../components/DragSort";
 
 export function Todos() {
   const { me, company } = useMe();
@@ -326,6 +327,11 @@ function Checklist({ todo }: { todo: Todo }) {
     setItems((data ?? []) as ChecklistItem[]);
   }, [todo.id]);
   useEffect(() => { load(); }, [load]);
+  const drag = useDragSort(items.length, (from, to) => {
+    const next = moved(items, from, to);
+    setItems(next);
+    saveSortOrder("ss_todo_checklist", next).then(load);
+  });
 
   const add = async () => {
     if (!draft.trim()) return;
@@ -352,8 +358,9 @@ function Checklist({ todo }: { todo: Todo }) {
   return (
     <div className="stack" style={{ gap: 6 }}>
       <h3>Checklist{items.length > 0 && <span className="count">{done}/{items.length}</span>}</h3>
-      {items.map((c) => (
-        <div key={c.id} className="row" style={{ gap: 8 }}>
+      {items.map((c, i) => (
+        <div key={c.id} {...drag.itemProps(i)} className={`row ${drag.itemProps(i).className}`} style={{ gap: 8, ...drag.itemProps(i).style }}>
+          {items.length > 1 && <DragHandle {...drag.handleProps(i, c.title)} className="edit-only" />}
           <Tick done={c.is_done} label={c.is_done ? "Mark not done" : "Mark done"} onToggle={() => toggle(c)} />
           {editing === c.id ? (
             <input className="input input-sm checklist-edit" defaultValue={c.title} autoFocus aria-label="Checklist item"

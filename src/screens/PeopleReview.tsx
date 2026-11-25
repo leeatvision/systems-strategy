@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronLeft, Columns3, History, Plus, Printer, SlidersHorizontal, Trash2, UserPlus, Users, X } from "lucide-react";
+import { ChevronLeft, Columns3, History, Plus, Printer, SlidersHorizontal, Trash2, UserPlus, Users, X } from "lucide-react";
 import { flushSync } from "react-dom";
 import { friendlyError, fullName, supabase, type Member } from "../lib/supabase";
 import { useMe } from "../lib/session";
@@ -9,6 +9,7 @@ import { Empty, Menu } from "../components/ui";
 import { Sheet } from "../components/Sheet";
 import { printPage } from "../lib/print";
 import { w } from "../lib/terms";
+import { DragHandle, moved, saveSortOrder, useDragSort } from "../components/DragSort";
 
 // ─── Shapes and rules ───────────────────────────────────────────────────────
 
@@ -233,6 +234,11 @@ export function PeopleReviewDetail() {
     const { error } = await supabase.from("ss_people_reviews").update(p).eq("id", review.id);
     if (error) { setError(friendlyError(error)); load(); }
   };
+  const peopleDrag = useDragSort(people.length, (from, to) => {
+    const next = moved(people, from, to);
+    setPeople(next);
+    saveSortOrder("ss_people_ratings", next).then((error) => { if (error) setError(friendlyError(error)); load(); });
+  });
   const rate = async (person: Person, t: Trait) => {
     const r = nextRating(t.scale, person.ratings[t.id]);
     const ratings = { ...person.ratings };
@@ -322,12 +328,13 @@ export function PeopleReviewDetail() {
               </tr>
             </thead>
             <tbody>
-              {people.map((p) => {
+              {people.map((p, pi) => {
                 const bar = atTheBar(traits, p.ratings);
                 const rated = traits.filter((t) => p.ratings[t.id]);
                 return (
-                  <tr key={p.id}>
+                  <tr key={p.id} {...peopleDrag.itemProps(pi)}>
                     <td className="pr-name">
+                      {people.length > 1 && <DragHandle {...peopleDrag.handleProps(pi, nameOf(p, byId))} className="no-print" />}
                       <button type="button" className="link-btn" onClick={() => openHistory(p)} title="See their history">{nameOf(p, byId)}</button>
                       <button type="button" className="link-btn pr-remove no-print" aria-label={`Take ${nameOf(p, byId)} off this review`} onClick={() => removePerson(p)}><X size={14} /></button>
                     </td>
@@ -449,9 +456,9 @@ function TraitsSheet(props: { mode: "default"; onClose: () => void } | { mode: "
     })();
   }, [props.mode]);
 
+  const drag = useDragSort(list?.length ?? 0, (from, to) => setList((l) => (l ? moved(l, from, to) : l)));
   if (!list) return <Sheet title="Traits" onClose={props.onClose}><p className="muted">Loading…</p></Sheet>;
   const set = (i: number, p: Partial<Trait>) => setList(list.map((t, j) => (j === i ? { ...t, ...p } : t)));
-  const move = (i: number, d: -1 | 1) => { const l = [...list]; [l[i], l[i + d]] = [l[i + d], l[i]]; setList(l); };
   const has = (title: string) => list.some((t) => w(t.title).toLowerCase() === w(title).toLowerCase());
   const missingRole = ROLE_TRAITS.filter((t) => !has(t.title));
   const missingValues = values.filter((v) => !has(v));
@@ -484,7 +491,8 @@ function TraitsSheet(props: { mode: "default"; onClose: () => void } | { mode: "
       {error && <p className="error">{error}</p>}
       <ul className="stack pr-traits" style={{ gap: 8 }}>
         {list.map((t, i) => (
-          <li key={t.id} className="row pr-trait-row">
+          <li key={t.id} {...drag.itemProps(i)} className={`row pr-trait-row ${drag.itemProps(i).className}`}>
+            <DragHandle {...drag.handleProps(i, w(t.title) || "trait")} />
             <input className="input input-sm" style={{ flex: "1 1 160px" }} aria-label="Trait" value={w(t.title)} onChange={(e) => set(i, { title: e.target.value })} />
             <select className="input input-sm" aria-label="Rated with" value={t.scale}
               onChange={(e) => { const scale = e.target.value as Scale; set(i, { scale, bar: scale === "yes_no" ? "Y" : "+/-" }); }}>
@@ -495,8 +503,6 @@ function TraitsSheet(props: { mode: "default"; onClose: () => void } | { mode: "
                 {STEPS[t.scale].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </label>
-            <button type="button" className="link-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-            <button type="button" className="link-btn" aria-label="Move down" disabled={i === list.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
             <button type="button" className="link-btn" aria-label={`Remove ${w(t.title)}`} onClick={() => setList(list.filter((_, j) => j !== i))}><X size={16} /></button>
           </li>
         ))}
